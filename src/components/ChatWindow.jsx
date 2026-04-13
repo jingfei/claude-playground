@@ -88,6 +88,16 @@ export default function ChatWindow() {
   const stopStreaming = () => {
     abortRef.current = true
     clearTimeout(timeoutRef.current)
+    // The cancelled tick can no longer call setIsStreaming(false), so do it here.
+    setMessages((prev) => {
+      const updated = [...prev]
+      const last = updated[updated.length - 1]
+      if (last?.role === 'assistant') {
+        updated[updated.length - 1] = { ...last, done: true }
+      }
+      return updated
+    })
+    setIsStreaming(false)
   }
 
   const handleKeyDown = (e) => {
