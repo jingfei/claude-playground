@@ -247,27 +247,24 @@ export default function MaskPainter() {
       </div>
 
       {/* ── upload zone (idle only) ── */}
-      {phase === 'idle' && (
-        <label
-          onDrop={onDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className="flex-1 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:border-gray-500 transition-colors min-h-64"
-        >
-          <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-          </svg>
-          <span className="text-gray-500 text-sm">Drop an image here or click to upload</span>
-          <input
-            type="file" accept="image/*" className="hidden"
-            onChange={(e) => loadImage(e.target.files[0])}
-          />
-        </label>
-      )}
+      <label
+        onDrop={onDrop}
+        onDragOver={(e) => e.preventDefault()}
+        className={`flex-1 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-700 rounded-2xl cursor-pointer hover:border-gray-500 transition-colors min-h-64 ${phase !== 'idle' ? 'hidden' : ''}`}
+      >
+        <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        <span className="text-gray-500 text-sm">Drop an image here or click to upload</span>
+        <input
+          type="file" accept="image/*" className="hidden"
+          onChange={(e) => loadImage(e.target.files[0])}
+        />
+      </label>
 
-      {/* ── canvas area ── */}
-      {phase !== 'idle' && (
-        <div className="flex flex-col gap-4">
+      {/* ── canvas area — always in DOM so refs are populated on first load ── */}
+      <div className={`flex flex-col gap-4 ${phase === 'idle' ? 'hidden' : ''}`}>
 
           {/* stacked canvases */}
           <div className="relative mx-auto rounded-xl overflow-hidden shadow-2xl" style={{ lineHeight: 0 }}>
@@ -357,8 +354,7 @@ export default function MaskPainter() {
             </div>
           )}
 
-        </div>
-      )}
+      </div>
     </div>
   )
 }
