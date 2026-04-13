@@ -147,7 +147,12 @@ export default function LayoutSwitcher() {
   const template = TEMPLATES[tplIdx]
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col gap-5 p-6 select-none">
+    <main aria-label="Magic Layout Switcher" className="min-h-screen bg-gray-950 text-white flex flex-col gap-5 p-6">
+
+      {/* Polite live region — announces layout name after each shuffle */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {!isAnimating && `${template.name} layout: ${template.hint}`}
+      </div>
 
       {/* ── header ── */}
       <div className="flex items-start justify-between gap-4">
@@ -163,6 +168,7 @@ export default function LayoutSwitcher() {
         <button
           onClick={shuffle}
           disabled={isAnimating}
+          aria-disabled={isAnimating}
           className="shrink-0 px-5 py-2 rounded-xl bg-white text-gray-950 text-sm font-semibold hover:bg-gray-100 active:scale-95 disabled:opacity-35 disabled:cursor-not-allowed transition-all"
         >
           Shuffle
@@ -177,9 +183,10 @@ export default function LayoutSwitcher() {
         {CARDS.map(card => {
           const slot = slots.indexOf(card.id)
           return (
-            <div
+            <article
               key={card.id}
               ref={el => { cardEls.current[card.id] = el }}
+              aria-label={`${card.label} card`}
               style={{
                 gridArea: `slot${slot}`,
                 background: `linear-gradient(135deg, ${card.from}, ${card.to})`,
@@ -188,10 +195,11 @@ export default function LayoutSwitcher() {
               className="rounded-2xl p-5 flex flex-col justify-between overflow-hidden"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-widest text-white/60">
+                <span className="text-xs font-semibold uppercase tracking-widest text-white/80">
                   {card.tag}
                 </span>
-                <span className="text-xs font-mono text-white/40">
+                {/* decorative slot indicator — no value for AT */}
+                <span aria-hidden="true" className="text-xs font-mono text-white/40">
                   slot{slot}
                 </span>
               </div>
@@ -199,16 +207,21 @@ export default function LayoutSwitcher() {
                 <h2 className="text-2xl font-bold tracking-tight">{card.label}</h2>
                 <p className="text-sm text-white/70 mt-1 leading-relaxed">{card.body}</p>
               </div>
-            </div>
+            </article>
           )
         })}
       </div>
 
       {/* ── layout indicator dots ── */}
-      <div className="flex justify-center items-center gap-2">
+      <div
+        role="status"
+        aria-label={`Layout ${tplIdx + 1} of ${TEMPLATES.length}: ${template.name}`}
+        className="flex justify-center items-center gap-2"
+      >
         {TEMPLATES.map((t, i) => (
           <div
             key={i}
+            aria-hidden="true"
             className={`rounded-full transition-all duration-300 ${
               i === tplIdx
                 ? 'w-4 h-1.5 bg-white'
@@ -218,6 +231,6 @@ export default function LayoutSwitcher() {
         ))}
       </div>
 
-    </div>
+    </main>
   )
 }
