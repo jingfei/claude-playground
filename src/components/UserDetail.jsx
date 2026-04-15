@@ -2,12 +2,26 @@ import { useState } from 'react'
 import { Avatar, RoleBadge, StatusBadge, Button, Input, Select, Field, Icons } from './ui.jsx'
 import { ROLES, STATUSES } from '../data.js'
 
-export default function UserDetail({ user, isNew, canEdit, navigate, onSave, onDelete }) {
+export default function UserDetail({ user, isNew, canEdit, navigate, onSave, onDelete, groups, onSaveGroup }) {
   const [editing, setEditing] = useState(isNew)
   const [form, setForm]       = useState(
-    user ?? { id: `u${Date.now()}`, name: '', email: '', role: 'viewer', status: 'active' }
+    user ?? { id: `u${Date.now()}`, name: '', email: '', role: 'member', status: 'active' }
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Groups this user belongs to
+  const userGroups     = (groups ?? []).filter(g => g.memberIds.includes(form.id))
+  const availableGroups = (groups ?? []).filter(g => !g.memberIds.includes(form.id))
+
+  const addToGroup = (groupId) => {
+    const g = groups.find(g => g.id === groupId)
+    if (g) onSaveGroup({ ...g, memberIds: [...g.memberIds, form.id] })
+  }
+
+  const removeFromGroup = (groupId) => {
+    const g = groups.find(g => g.id === groupId)
+    if (g) onSaveGroup({ ...g, memberIds: g.memberIds.filter(id => id !== form.id) })
+  }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -86,7 +100,7 @@ export default function UserDetail({ user, isNew, canEdit, navigate, onSave, onD
         </div>
       )}
 
-      {/* Fields */}
+      {/* Profile fields */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl divide-y divide-gray-800">
         <Section label="Identity">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -129,6 +143,73 @@ export default function UserDetail({ user, isNew, canEdit, navigate, onSave, onD
           </div>
         </Section>
       </div>
+
+      {/* Groups — always visible; admin can add/remove without entering profile edit mode */}
+      {!isNew && groups && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl">
+          <Section label={`Groups (${userGroups.length})`}>
+            <div className="space-y-1">
+              {userGroups.length === 0 && (
+                <p className="text-sm text-gray-600">Not a member of any group.</p>
+              )}
+              {userGroups.map(g => (
+                <div key={g.id} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-gray-800/60 transition-colors">
+                  <div className="w-7 h-7 rounded-lg bg-violet-600/20 border border-violet-500/25 flex items-center justify-center shrink-0">
+                    <Icons.Groups />
+                  </div>
+                  <button
+                    onClick={() => navigate('group', g.id)}
+                    className="flex-1 text-left text-sm font-medium text-gray-200 hover:text-white transition-colors truncate"
+                  >
+                    {g.name}
+                  </button>
+                  <span className="text-xs text-gray-600">{g.memberIds.length} members</span>
+                  {canEdit && (
+                    <button
+                      onClick={() => removeFromGroup(g.id)}
+                      aria-label={`Remove from ${g.name}`}
+                      className="text-gray-600 hover:text-red-400 transition-colors"
+                    >
+                      <Icons.X />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add to group — admin only, only when there are groups to add */}
+            {canEdit && availableGroups.length > 0 && (
+              <AddToGroup groups={availableGroups} onAdd={addToGroup} />
+            )}
+          </Section>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddToGroup({ groups, onAdd }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="pt-2 border-t border-gray-800 relative">
+      <Button variant="ghost" size="sm" onClick={() => setOpen(o => !o)}>
+        <Icons.Plus /> Add to group
+      </Button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-10 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden min-w-48">
+          {groups.map(g => (
+            <button
+              key={g.id}
+              onClick={() => { onAdd(g.id); setOpen(false) }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors text-left"
+            >
+              <Icons.Groups />
+              <span>{g.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

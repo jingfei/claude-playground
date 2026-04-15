@@ -59,6 +59,8 @@ export default function App() {
           navigate={navigate}
           onSave={saveUser}
           onDelete={deleteUser}
+          groups={groups}
+          onSaveGroup={saveGroup}
         />
       )
     }

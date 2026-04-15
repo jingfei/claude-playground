@@ -2,8 +2,7 @@
 
 const ROLE_STYLES = {
   admin:  'bg-violet-500/15 text-violet-300 ring-1 ring-violet-500/30',
-  editor: 'bg-blue-500/15   text-blue-300   ring-1 ring-blue-500/30',
-  viewer: 'bg-gray-500/15   text-gray-300   ring-1 ring-gray-500/30',
+  member: 'bg-blue-500/15   text-blue-300   ring-1 ring-blue-500/30',
 }
 const STATUS_STYLES = {
   active:   'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30',
