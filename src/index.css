@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(400%); }
+  }
+}
