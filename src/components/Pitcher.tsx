@@ -1,14 +1,22 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, PITCHER } from '../game/constants.js';
-import { lerp } from '../game/state.js';
-import { drawBall } from '../game/draw.js';
+import { W, H, PITCHER } from '../game/constants.ts';
+import { lerp } from '../game/state.ts';
+import { drawBall } from '../game/draw.ts';
+import type { DrawHandle, GameState } from '../types.ts';
 
-export default function Pitcher({ ref }) {
-  const canvasRef = useRef(null);
+interface Props {
+  ref: React.Ref<DrawHandle>;
+}
 
-  useImperativeHandle(ref, () => ({
-    draw(g) {
-      const ctx = canvasRef.current.getContext('2d');
+export default function Pitcher({ ref }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useImperativeHandle(ref, (): DrawHandle => ({
+    draw(g: GameState) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
       drawPitcher(ctx, g);
     },
@@ -24,9 +32,8 @@ export default function Pitcher({ ref }) {
   );
 }
 
-function drawPitcher(ctx, g) {
-  const x = PITCHER.x;
-  const y = PITCHER.y;
+function drawPitcher(ctx: CanvasRenderingContext2D, g: GameState): void {
+  const { x, y } = PITCHER;
 
   let armAngle = 0;
   if (g.phase === 'pitching') {
@@ -50,7 +57,7 @@ function drawPitcher(ctx, g) {
   ctx.fillText('17', x, y + 4);
   ctx.textAlign = 'left';
 
-  // glove arm
+  // Glove arm
   ctx.strokeStyle = '#2a4a8a';
   ctx.lineWidth = 6;
   ctx.lineCap = 'round';
@@ -63,19 +70,17 @@ function drawPitcher(ctx, g) {
   ctx.arc(x - 34, y + 10, 7, 0, Math.PI * 2);
   ctx.fill();
 
-  // throwing arm
-  const shX = x + 14;
-  const shY = y;
-  const handX = shX + Math.cos(armAngle) * 32;
-  const handY = shY + Math.sin(armAngle) * 32;
+  // Throwing arm
+  const handX = (x + 14) + Math.cos(armAngle) * 32;
+  const handY = y + Math.sin(armAngle) * 32;
   ctx.strokeStyle = '#2a4a8a';
   ctx.lineWidth = 7;
   ctx.beginPath();
-  ctx.moveTo(shX, shY);
+  ctx.moveTo(x + 14, y);
   ctx.lineTo(handX, handY);
   ctx.stroke();
 
-  // head + cap
+  // Head + cap
   ctx.fillStyle = '#f4c891';
   ctx.beginPath();
   ctx.arc(x, y - 8, 13, 0, Math.PI * 2);
@@ -93,7 +98,7 @@ function drawPitcher(ctx, g) {
   ctx.fillText('P', x, y - 5);
   ctx.textAlign = 'left';
 
-  // ball in hand before release
+  // Ball in hand before release
   if (g.phase !== 'pitching' || g.ballT < 0.3) {
     drawBall(ctx, handX, handY, 5);
   }

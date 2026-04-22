@@ -1,28 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import Field from './Field.jsx';
-import Pitcher from './Pitcher.jsx';
-import Batter from './Batter.jsx';
-import Ball from './Ball.jsx';
-import Scoreboard from './Scoreboard.jsx';
-import ResultBanner from './ResultBanner.jsx';
-import { W, H } from '../game/constants.js';
-import { createGameState, startPitch, swing, resolve } from '../game/state.js';
+import Field from './Field.tsx';
+import Pitcher from './Pitcher.tsx';
+import Batter from './Batter.tsx';
+import Ball from './Ball.tsx';
+import Scoreboard from './Scoreboard.tsx';
+import ResultBanner from './ResultBanner.tsx';
+import { W, H } from '../game/constants.ts';
+import { createGameState, startPitch, swing, resolve } from '../game/state.ts';
+import type { DrawHandle, GamePhase } from '../types.ts';
 
 export default function BaseballGame() {
   const gameRef = useRef(createGameState());
-  const pitcherRef = useRef(null);
-  const batterRef = useRef(null);
-  const ballRef = useRef(null);
+  const pitcherRef = useRef<DrawHandle>(null);
+  const batterRef = useRef<DrawHandle>(null);
+  const ballRef = useRef<DrawHandle>(null);
 
   const [balls, setBalls] = useState(0);
   const [strikes, setStrikes] = useState(0);
-  const [phase, setPhase] = useState('ready');
+  const [phase, setPhase] = useState<GamePhase>('ready');
   const [resultText, setResultText] = useState('');
   const [resultAlpha, setResultAlpha] = useState(0);
 
   useEffect(() => {
     const g = gameRef.current;
-    let rafId;
+    let rafId: number;
 
     const tick = () => {
       if (g.phase === 'pitching') {
@@ -52,12 +53,14 @@ export default function BaseballGame() {
 
     const canStartNext = () =>
       g.phase === 'ready' || (g.phase === 'result' && g.resultTimer < 30);
+
     const doStart = () => {
       startPitch(g);
       setPhase(g.phase);
       setResultText('');
     };
-    const onKey = (e) => {
+
+    const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
         e.preventDefault();
         if (g.phase === 'pitching') swing(g);

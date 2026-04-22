@@ -1,12 +1,13 @@
-import { PLATE, ZONE } from './constants.js';
+import { PLATE, ZONE } from './constants.ts';
+import type { GameState } from '../types.ts';
 
-export function lerp(a, b, t) {
+export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export function createGameState() {
+export function createGameState(): GameState {
   return {
-    phase: 'ready', // ready | pitching | result
+    phase: 'ready',
     ballT: 0,
     ballEnd: null,
     inZone: false,
@@ -19,10 +20,10 @@ export function createGameState() {
   };
 }
 
-export function startPitch(g) {
+export function startPitch(g: GameState): void {
   const inZone = Math.random() < 0.65;
-  let ex;
-  let ey;
+  let ex: number;
+  let ey: number;
   if (inZone) {
     ex = ZONE.x + Math.random() * ZONE.w;
     ey = ZONE.y + Math.random() * ZONE.h;
@@ -52,12 +53,12 @@ export function startPitch(g) {
   g.resultTimer = 0;
 }
 
-export function swing(g) {
+export function swing(g: GameState): void {
   if (g.phase !== 'pitching' || g.swingT >= 0) return;
   g.swingT = 0;
 }
 
-export function resolve(g) {
+export function resolve(g: GameState): void {
   const swung = g.swingT >= 0;
 
   if (swung) {

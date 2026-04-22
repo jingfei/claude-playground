@@ -1,4 +1,4 @@
-const RESULT_COLORS = {
+const RESULT_COLORS: Record<string, string> = {
   'STRIKE!': 'text-red-400',
   'BALL!': 'text-green-400',
   'HIT!': 'text-yellow-300',
@@ -8,7 +8,12 @@ const RESULT_COLORS = {
   WALK: 'text-green-400',
 };
 
-export default function ResultBanner({ text, alpha }) {
+interface Props {
+  text: string;
+  alpha: number;
+}
+
+export default function ResultBanner({ text, alpha }: Props) {
   if (!text || alpha <= 0) return null;
   const color = RESULT_COLORS[text] ?? 'text-white';
   return (

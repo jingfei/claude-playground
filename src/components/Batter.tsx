@@ -1,13 +1,21 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, BATTER } from '../game/constants.js';
-import { lerp } from '../game/state.js';
+import { W, H, BATTER } from '../game/constants.ts';
+import { lerp } from '../game/state.ts';
+import type { DrawHandle, GameState } from '../types.ts';
 
-export default function Batter({ ref }) {
-  const canvasRef = useRef(null);
+interface Props {
+  ref: React.Ref<DrawHandle>;
+}
 
-  useImperativeHandle(ref, () => ({
-    draw(g) {
-      const ctx = canvasRef.current.getContext('2d');
+export default function Batter({ ref }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useImperativeHandle(ref, (): DrawHandle => ({
+    draw(g: GameState) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
       drawBatter(ctx, g);
     },
@@ -23,31 +31,27 @@ export default function Batter({ ref }) {
   );
 }
 
-function drawBatter(ctx, g) {
-  const x = BATTER.x;
-  const y = BATTER.y;
+function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
+  const { x, y } = BATTER;
 
-  let batAngle;
-  if (g.swingT < 0) {
-    batAngle = -Math.PI / 4;
-  } else {
-    batAngle = lerp(-Math.PI / 4, -Math.PI * 1.1, g.swingT);
-  }
+  const batAngle =
+    g.swingT < 0
+      ? -Math.PI / 4
+      : lerp(-Math.PI / 4, -Math.PI * 1.1, g.swingT);
 
+  // Body
   ctx.fillStyle = '#c22';
   ctx.beginPath();
   ctx.ellipse(x, y, 16, 20, 0, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.fillStyle = '#fff';
   ctx.fillRect(x - 2, y - 14, 4, 28);
 
-  // head
+  // Head + helmet
   ctx.fillStyle = '#f4c891';
   ctx.beginPath();
   ctx.arc(x, y - 10, 12, 0, Math.PI * 2);
   ctx.fill();
-  // helmet
   ctx.fillStyle = '#222';
   ctx.beginPath();
   ctx.arc(x, y - 10, 12, 0, Math.PI * 2);
@@ -60,7 +64,7 @@ function drawBatter(ctx, g) {
   const handX = x + 6;
   const handY = y - 6;
 
-  // arm to hands
+  // Arm
   ctx.strokeStyle = '#c22';
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
@@ -69,7 +73,7 @@ function drawBatter(ctx, g) {
   ctx.lineTo(handX, handY);
   ctx.stroke();
 
-  // bat
+  // Bat
   const batLen = 70;
   const batEndX = handX + Math.cos(batAngle) * batLen;
   const batEndY = handY + Math.sin(batAngle) * batLen;

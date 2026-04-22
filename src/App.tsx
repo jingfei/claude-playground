@@ -1,4 +1,4 @@
-import BaseballGame from './components/BaseballGame.jsx';
+import BaseballGame from './components/BaseballGame.tsx';
 
 export default function App() {
   return (
@@ -6,8 +6,11 @@ export default function App() {
       <h1 className="text-2xl font-semibold mb-4 tracking-wide">⚾ Baseball</h1>
       <BaseballGame />
       <p className="mt-3 text-sm text-neutral-400">
-        Press <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-xs">SPACE</kbd> to swing ·
-        any other key for next pitch
+        Press{' '}
+        <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-xs">
+          SPACE
+        </kbd>{' '}
+        to swing · any other key for next pitch
       </p>
     </div>
   );

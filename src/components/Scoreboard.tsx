@@ -1,16 +1,26 @@
-export default function Scoreboard({ balls, strikes }) {
+interface Props {
+  balls: number;
+  strikes: number;
+}
+
+export default function Scoreboard({ balls, strikes }: Props) {
   return (
     <div className="absolute top-3 left-3 px-4 py-3 rounded-md bg-black/75 border border-neutral-700 backdrop-blur-sm pointer-events-none">
-      <div className="text-xs font-bold tracking-widest text-neutral-300 mb-2">
-        COUNT
-      </div>
+      <div className="text-xs font-bold tracking-widest text-neutral-300 mb-2">COUNT</div>
       <Row label="B" filled={balls} total={4} color="green" />
       <Row label="S" filled={strikes} total={3} color="red" />
     </div>
   );
 }
 
-function Row({ label, filled, total, color }) {
+interface RowProps {
+  label: string;
+  filled: number;
+  total: number;
+  color: 'green' | 'red';
+}
+
+function Row({ label, filled, total, color }: RowProps) {
   const onStyles =
     color === 'green'
       ? 'bg-green-500 border-green-400 shadow-[0_0_6px_rgba(34,197,94,0.6)]'
