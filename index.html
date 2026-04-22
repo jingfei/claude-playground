@@ -1,13 +1,529 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>claude-playground</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<title>Baseball</title>
+<style>
+  body {
+    margin: 0;
+    background: #0a1a0a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: system-ui, sans-serif;
+    color: #eee;
+  }
+  canvas {
+    border: 2px solid #333;
+    border-radius: 6px;
+    background: #4a9a3a;
+  }
+  #hint {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #aaa;
+  }
+</style>
+</head>
+<body>
+  <canvas id="game" width="800" height="500"></canvas>
+  <div id="hint">Press SPACE to swing &middot; any other key for next pitch</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Positions
+const PITCHER = { x: 150, y: 300 };
+const BATTER  = { x: 640, y: 340 };
+const PLATE   = { x: 670, y: 400 };
+const ZONE    = { x: 625, y: 255, w: 60, h: 100 };
+
+// Game state
+const G = {
+  phase: 'ready',   // ready | pitching | result
+  balls: 0,
+  strikes: 0,
+  ballT: 0,         // 0..1 ball travel progress
+  ballEnd: null,    // where this pitch ends up
+  inZone: false,
+  swingT: -1,       // -1 = not swinging, 0..1 swing progress
+  result: '',
+  resultTimer: 0,
+  hit: null,        // {x, y, type} when contact is made
+};
+
+// ---- Drawing helpers ----
+function drawField() {
+  // grass
+  ctx.fillStyle = '#4a9a3a';
+  ctx.fillRect(0, 0, W, H);
+  // dirt infield
+  ctx.fillStyle = '#c68a4a';
+  ctx.beginPath();
+  ctx.ellipse(W / 2, H * 0.75, W * 0.45, H * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // pitcher's mound
+  ctx.fillStyle = '#b57a3a';
+  ctx.beginPath();
+  ctx.ellipse(PITCHER.x, PITCHER.y + 45, 45, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // pitcher's rubber
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(PITCHER.x - 15, PITCHER.y + 40, 30, 5);
+  // home plate
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(PLATE.x - 18, PLATE.y);
+  ctx.lineTo(PLATE.x + 18, PLATE.y);
+  ctx.lineTo(PLATE.x + 18, PLATE.y + 10);
+  ctx.lineTo(PLATE.x, PLATE.y + 18);
+  ctx.lineTo(PLATE.x - 18, PLATE.y + 10);
+  ctx.closePath();
+  ctx.fill();
+  // foul lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(PLATE.x, PLATE.y);
+  ctx.lineTo(W, 120);
+  ctx.moveTo(PLATE.x, PLATE.y);
+  ctx.lineTo(-20, 120);
+  ctx.stroke();
+}
+
+function drawStrikeZone() {
+  ctx.fillStyle = 'rgba(255, 255, 100, 0.12)';
+  ctx.fillRect(ZONE.x, ZONE.y, ZONE.w, ZONE.h);
+  ctx.strokeStyle = 'rgba(255, 255, 100, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(ZONE.x, ZONE.y, ZONE.w, ZONE.h);
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,100,0.7)';
+  ctx.font = '11px system-ui';
+  ctx.fillText('STRIKE ZONE', ZONE.x - 5, ZONE.y - 6);
+}
+
+// Pitcher animation: windup when pitching
+function drawPitcher() {
+  const x = PITCHER.x, y = PITCHER.y;
+  // phases: 0..0.2 windup, 0.2..0.4 throw, 0.4+ follow
+  let armAngle = -Math.PI / 2; // default arm up
+  if (G.phase === 'pitching') {
+    if (G.ballT < 0.15) {
+      armAngle = -Math.PI / 2 - (G.ballT / 0.15) * 1.2; // wind back
+    } else if (G.ballT < 0.3) {
+      const t = (G.ballT - 0.15) / 0.15;
+      armAngle = -Math.PI / 2 - 1.2 + t * 2.4; // whip forward
+    } else {
+      armAngle = Math.PI / 2 - 0.2; // follow through
+    }
+  }
+
+  // legs
+  ctx.strokeStyle = '#2a4a8a';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 10, y + 40);
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 12, y + 40);
+  ctx.stroke();
+
+  // body
+  ctx.strokeStyle = '#2a4a8a';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 40);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  // head
+  ctx.fillStyle = '#f4c891';
+  ctx.beginPath();
+  ctx.arc(x, y - 52, 12, 0, Math.PI * 2);
+  ctx.fill();
+  // cap
+  ctx.fillStyle = '#2a4a8a';
+  ctx.beginPath();
+  ctx.arc(x, y - 52, 12, Math.PI, 0);
+  ctx.fill();
+  ctx.fillRect(x - 2, y - 64, 14, 4);
+
+  // throwing arm
+  const shoulderX = x, shoulderY = y - 35;
+  const handX = shoulderX + Math.cos(armAngle) * 30;
+  const handY = shoulderY + Math.sin(armAngle) * 30;
+  ctx.strokeStyle = '#2a4a8a';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(shoulderX, shoulderY);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+
+  // ball in hand before release
+  if (G.phase !== 'pitching' || G.ballT < 0.3) {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(handX, handY, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// Batter animation: bat swings when swingT is active
+function drawBatter() {
+  const x = BATTER.x, y = BATTER.y;
+
+  // legs
+  ctx.strokeStyle = '#c22';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 12, y + 40);
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 12, y + 40);
+  ctx.stroke();
+
+  // body
+  ctx.strokeStyle = '#c22';
+  ctx.lineWidth = 14;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 40);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  // head
+  ctx.fillStyle = '#f4c891';
+  ctx.beginPath();
+  ctx.arc(x, y - 52, 12, 0, Math.PI * 2);
+  ctx.fill();
+  // helmet
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(x, y - 52, 12, Math.PI, 0);
+  ctx.fill();
+
+  // bat angle: start held up-back, swing through to forward
+  let batAngle;
+  if (G.swingT < 0) {
+    batAngle = -Math.PI * 0.75; // held up and back (behind batter)
+  } else {
+    // swing from behind (-135deg) through to in front (+45deg)
+    batAngle = -Math.PI * 0.75 + G.swingT * Math.PI * 1.2;
+  }
+
+  // arms (hands at body, bat extends out)
+  const handX = x - 10;
+  const handY = y - 25;
+  const batLen = 55;
+  const batEndX = handX + Math.cos(batAngle) * batLen;
+  const batEndY = handY + Math.sin(batAngle) * batLen;
+
+  // arms
+  ctx.strokeStyle = '#c22';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 30);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+
+  // bat
+  ctx.strokeStyle = '#8B4513';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(handX, handY);
+  ctx.lineTo(batEndX, batEndY);
+  ctx.stroke();
+}
+
+// Ball traveling from pitcher to plate
+function drawPitchBall() {
+  if (G.phase !== 'pitching' || G.ballT < 0.3 || !G.ballEnd) return;
+  // ball visible only after release (t >= 0.3)
+  const t = (G.ballT - 0.3) / 0.7; // 0..1 travel
+  const sx = PITCHER.x + 30, sy = PITCHER.y - 45;
+  const ex = G.ballEnd.x, ey = G.ballEnd.y;
+  const x = sx + (ex - sx) * t;
+  const y = sy + (ey - sy) * t;
+  const size = 4 + t * 4;
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#c33';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+// Hit ball trajectory to field
+function drawHitBall() {
+  if (!G.hit) return;
+  // animate ball flying from plate to landing spot
+  const t = Math.min(1, G.hit.t);
+  const sx = PLATE.x, sy = PLATE.y - 20;
+  const ex = G.hit.x, ey = G.hit.y;
+  // arc: y goes up then down
+  const midY = Math.min(sy, ey) - 120;
+  const x = sx + (ex - sx) * t;
+  const y = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * midY + t * t * ey;
+
+  // trail
+  for (let i = 4; i >= 1; i--) {
+    const ti = Math.max(0, t - i * 0.05);
+    const tx = sx + (ex - sx) * ti;
+    const ty = (1 - ti) * (1 - ti) * sy + 2 * (1 - ti) * ti * midY + ti * ti * ey;
+    ctx.globalAlpha = (5 - i) / 10;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(tx, ty, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#c33';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // landing marker when ball has landed
+  if (t >= 1) {
+    ctx.strokeStyle = '#ff0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ff0';
+    ctx.font = 'bold 14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(G.hit.type, ex, ey - 22);
+    ctx.textAlign = 'left';
+  }
+}
+
+// Scoreboard
+function drawScoreboard() {
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(10, 10, 180, 70);
+  ctx.strokeStyle = '#555';
+  ctx.strokeRect(10, 10, 180, 70);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px system-ui';
+  ctx.fillText('COUNT', 22, 30);
+
+  // balls
+  ctx.fillStyle = '#ccc';
+  ctx.font = '12px system-ui';
+  ctx.fillText('B', 22, 52);
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.arc(40 + i * 18, 48, 6, 0, Math.PI * 2);
+    ctx.fillStyle = i < G.balls ? '#2f2' : '#333';
+    ctx.fill();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  // strikes
+  ctx.fillStyle = '#ccc';
+  ctx.font = '12px system-ui';
+  ctx.fillText('S', 22, 72);
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(40 + i * 18, 68, 6, 0, Math.PI * 2);
+    ctx.fillStyle = i < G.strikes ? '#f33' : '#333';
+    ctx.fill();
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// Result banner
+function drawResult() {
+  if (!G.result || G.resultTimer <= 0) return;
+  const colors = {
+    'STRIKE!': '#f33',
+    'BALL!': '#3f3',
+    'HIT!': '#ff0',
+    'FOUL!': '#f80',
+    'MISS!': '#f66',
+  };
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, G.resultTimer / 30);
+  ctx.font = 'bold 48px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillText(G.result, W / 2 + 3, H / 2 + 3);
+  ctx.fillStyle = colors[G.result] || '#fff';
+  ctx.fillText(G.result, W / 2, H / 2);
+  ctx.textAlign = 'left';
+  ctx.restore();
+}
+
+// ---- Game logic ----
+function startPitch() {
+  // pick target: 65% in zone, 35% out
+  const inZone = Math.random() < 0.65;
+  let ex, ey;
+  if (inZone) {
+    ex = ZONE.x + Math.random() * ZONE.w;
+    ey = ZONE.y + Math.random() * ZONE.h;
+  } else {
+    // offset outside zone
+    const side = Math.floor(Math.random() * 4);
+    if (side === 0) { ex = ZONE.x + Math.random() * ZONE.w; ey = ZONE.y - 20 - Math.random() * 30; }
+    else if (side === 1) { ex = ZONE.x + Math.random() * ZONE.w; ey = ZONE.y + ZONE.h + 10 + Math.random() * 30; }
+    else if (side === 2) { ex = ZONE.x - 20 - Math.random() * 30; ey = ZONE.y + Math.random() * ZONE.h; }
+    else { ex = ZONE.x + ZONE.w + 10 + Math.random() * 30; ey = ZONE.y + Math.random() * ZONE.h; }
+  }
+  G.ballEnd = { x: ex, y: ey };
+  G.inZone = inZone;
+  G.phase = 'pitching';
+  G.ballT = 0;
+  G.swingT = -1;
+  G.hit = null;
+  G.result = '';
+  G.resultTimer = 0;
+}
+
+function swing() {
+  if (G.phase !== 'pitching' || G.swingT >= 0) return;
+  G.swingT = 0;
+}
+
+// Determine outcome when ball reaches plate
+function resolve() {
+  const swung = G.swingT >= 0;
+  // contact window: ball arrives around ballT=1, swing should be near middle (0.4-0.7)
+  if (swung) {
+    const goodTiming = G.swingT > 0.35 && G.swingT < 0.8;
+    const inZone = G.inZone;
+
+    if (goodTiming && inZone) {
+      // HIT - pick random spot in fair territory
+      const angle = -Math.PI + Math.random() * Math.PI; // upper half (toward outfield)
+      const dist = 180 + Math.random() * 180;
+      const hx = PLATE.x + Math.cos(angle) * dist;
+      const hy = PLATE.y + Math.sin(angle) * dist;
+      // classify
+      let type = 'SINGLE';
+      const r = Math.random();
+      if (dist > 320 && hy < 100) type = 'HOME RUN!';
+      else if (r > 0.7) type = 'DOUBLE';
+      else if (r > 0.9) type = 'TRIPLE';
+      G.hit = { x: hx, y: hy, type, t: 0 };
+      G.result = 'HIT!';
+      // reset count on hit
+      G.balls = 0;
+      G.strikes = 0;
+    } else if (!goodTiming || !inZone) {
+      // swung and missed, or mistimed
+      if (Math.random() < 0.25 && inZone) {
+        // foul ball
+        G.result = 'FOUL!';
+        if (G.strikes < 2) G.strikes++;
+      } else {
+        G.result = 'MISS!';
+        G.strikes++;
+      }
+    }
+  } else {
+    // took the pitch
+    if (G.inZone) {
+      G.result = 'STRIKE!';
+      G.strikes++;
+    } else {
+      G.result = 'BALL!';
+      G.balls++;
+    }
+  }
+
+  // reset on 3 strikes or 4 balls
+  if (G.strikes >= 3) {
+    G.result = 'STRIKEOUT';
+    G.strikes = 0;
+    G.balls = 0;
+  } else if (G.balls >= 4) {
+    G.result = 'WALK';
+    G.strikes = 0;
+    G.balls = 0;
+  }
+
+  G.resultTimer = 90;
+  G.phase = 'result';
+}
+
+// ---- Main loop ----
+function update() {
+  if (G.phase === 'pitching') {
+    G.ballT += 0.018;
+    if (G.swingT >= 0) G.swingT += 0.04;
+    if (G.ballT >= 1) {
+      G.ballT = 1;
+      resolve();
+    }
+  } else if (G.phase === 'result') {
+    if (G.resultTimer > 0) G.resultTimer--;
+    if (G.hit) G.hit.t = Math.min(1, G.hit.t + 0.02);
+  }
+}
+
+function draw() {
+  drawField();
+  drawStrikeZone();
+  drawPitcher();
+  drawBatter();
+  drawPitchBall();
+  drawHitBall();
+  drawScoreboard();
+  drawResult();
+
+  // idle prompt
+  if (G.phase === 'ready') {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(W / 2 - 150, H - 60, 300, 30);
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press any key to pitch', W / 2, H - 40);
+    ctx.textAlign = 'left';
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ---- Input ----
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (G.phase === 'pitching') swing();
+    else if (G.phase === 'ready' || (G.phase === 'result' && G.resultTimer < 30)) startPitch();
+  } else {
+    if (G.phase === 'ready' || (G.phase === 'result' && G.resultTimer < 30)) startPitch();
+  }
+});
+
+canvas.addEventListener('click', () => {
+  if (G.phase === 'pitching') swing();
+  else if (G.phase === 'ready' || (G.phase === 'result' && G.resultTimer < 30)) startPitch();
+});
+
+loop();
+</script>
+</body>
 </html>
