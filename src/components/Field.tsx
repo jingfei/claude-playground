@@ -1,6 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
+// Bases in fair territory.
+// Diamond side s = 340/√2 ≈ 240 px (home-to-second = 340 px).
+// First/third base centers moved ~15 px inward from the foul line so
+// the full base square sits inside fair territory.
+const FIRST  = { x: PLATE.x + 155, y: PLATE.y - 185 };
+const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
+const THIRD  = { x: PLATE.x - 155, y: PLATE.y - 185 };
+
+// Back vertex of home plate — where the two foul lines originate.
+const VERTEX = { x: PLATE.x, y: PLATE.y + 10 };
+
 export default function Field() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -17,7 +28,7 @@ export default function Field() {
 }
 
 function drawField(ctx: CanvasRenderingContext2D): void {
-  // Grass
+  // ── Grass ──────────────────────────────────────────────────────────────
   ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, 0, W, H);
 
@@ -26,77 +37,73 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.ellipse(PLATE.x, PLATE.y, 520, 430, 0, Math.PI, 0);
   ctx.fill();
 
-  // Dirt infield
+  // ── Infield dirt ───────────────────────────────────────────────────────
   ctx.fillStyle = '#c68a4a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x, PLATE.y + 10);
-  ctx.lineTo(PLATE.x - 170, PLATE.y - 170);
-  ctx.lineTo(PLATE.x, PLATE.y - 340);
-  ctx.lineTo(PLATE.x + 170, PLATE.y - 170);
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(THIRD.x,  THIRD.y);
+  ctx.lineTo(SECOND.x, SECOND.y);
+  ctx.lineTo(FIRST.x,  FIRST.y);
   ctx.closePath();
   ctx.fill();
 
-  // Inner grass
+  // ── Inner grass (inside the basepath) ──────────────────────────────────
+  const shrink = 40; // inset the inner-grass polygon
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x, PLATE.y - 30);
-  ctx.lineTo(PLATE.x - 120, PLATE.y - 170);
-  ctx.lineTo(PLATE.x, PLATE.y - 290);
-  ctx.lineTo(PLATE.x + 120, PLATE.y - 170);
+  ctx.moveTo(PLATE.x,           VERTEX.y  - shrink);
+  ctx.lineTo(THIRD.x  + shrink, THIRD.y  + shrink * 0.3);
+  ctx.lineTo(SECOND.x,          SECOND.y + shrink);
+  ctx.lineTo(FIRST.x  - shrink, FIRST.y  + shrink * 0.3);
   ctx.closePath();
   ctx.fill();
 
-  // Bases — proper square diamond: side ≈ 240px, first/third at (±170, -170)
-  ctx.fillStyle = '#fff';
-  (
-    [
-      [-170, -170], // third base
-      [0, -340],    // second base
-      [170, -170],  // first base
-    ] as [number, number][]
-  ).forEach(([dx, dy]) => {
-    ctx.save();
-    ctx.translate(PLATE.x + dx, PLATE.y + dy);
-    ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-8, -8, 16, 16);
-    ctx.restore();
-  });
+  // ── Foul lines — exactly 90° (±45° from vertical), start at plate vertex ─
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  const reach = 700; // long enough to exit the canvas
+  ctx.beginPath();
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(VERTEX.x + reach, VERTEX.y - reach); // right foul line  +45°
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(VERTEX.x - reach, VERTEX.y - reach); // left foul line   −45°
+  ctx.stroke();
 
-  // Pitcher's mound
+  // ── Pitcher's mound ────────────────────────────────────────────────────
   ctx.fillStyle = '#b57a3a';
   ctx.beginPath();
   ctx.ellipse(PITCHER.x, PITCHER.y + 10, 55, 38, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Rubber
   ctx.fillStyle = '#fff';
   ctx.fillRect(PITCHER.x - 16, PITCHER.y + 4, 32, 4);
 
-  // Home plate
+  // ── Home plate — pentagon, flat edge toward pitcher, vertex toward catcher ─
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x - 18, PLATE.y + 8);
-  ctx.lineTo(PLATE.x + 18, PLATE.y + 8);
-  ctx.lineTo(PLATE.x + 18, PLATE.y);
-  ctx.lineTo(PLATE.x, PLATE.y - 10);
-  ctx.lineTo(PLATE.x - 18, PLATE.y);
+  ctx.moveTo(PLATE.x - 18, PLATE.y - 10); // front-left
+  ctx.lineTo(PLATE.x + 18, PLATE.y - 10); // front-right
+  ctx.lineTo(PLATE.x + 18, PLATE.y);      // right shoulder
+  ctx.lineTo(PLATE.x,      PLATE.y + 10); // back vertex  ← toward catcher
+  ctx.lineTo(PLATE.x - 18, PLATE.y);      // left shoulder
   ctx.closePath();
   ctx.fill();
 
-  // Batter's boxes
-  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  // ── Batter's boxes ─────────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(PLATE.x + 22, PLATE.y - 28, 46, 74);
-  ctx.strokeRect(PLATE.x - 68, PLATE.y - 28, 46, 74);
+  ctx.strokeRect(PLATE.x + 20,  PLATE.y - 30, 46, 74);
+  ctx.strokeRect(PLATE.x - 66,  PLATE.y - 30, 46, 74);
 
-  // Foul lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(PLATE.x, PLATE.y);
-  ctx.lineTo(-30, -30);
-  ctx.moveTo(PLATE.x, PLATE.y);
-  ctx.lineTo(W + 30, -30);
-  ctx.stroke();
+  // ── Bases ──────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#fff';
+  [FIRST, SECOND, THIRD].forEach(({ x, y }) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillRect(-8, -8, 16, 16);
+    ctx.restore();
+  });
 }
 
 function drawStrikeZone(ctx: CanvasRenderingContext2D): void {
