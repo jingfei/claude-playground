@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
-// Bases in fair territory.
-// Diamond side s = 340/√2 ≈ 240 px (home-to-second = 340 px).
-// VERTEX = (400, 490); foul lines: x+y=890 (right), x−y=−90 (left).
-// Rotated base foul-edge lies on line when center: FIRST.x+FIRST.y = 890−8√2 ≈ 878.7
-// → FIRST ≈ (575, 304), THIRD ≈ (225, 304).
-const FIRST  = { x: PLATE.x + 175, y: PLATE.y - 166 };
+// Bases in fair territory.  New MLB rule (2023): 18″ × 18″ base (was 15″).
+// Scale: home plate 40px = 17″ → 18″ = 42px side, half-side=21px, half-diag=21√2≈29.7px.
+// VERTEX=(400,490); foul lines: x+y=890 (right), x−y=−90 (left).
+// Foul-side edge on foul line when FIRST.x+21√2+FIRST.y=890 → center sum≈860.3.
+// At 90ft scale (~240px from PLATE): FIRST=(565,295), THIRD=(235,295).
+const FIRST  = { x: PLATE.x + 165, y: PLATE.y - 175 };
 const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
-const THIRD  = { x: PLATE.x - 175, y: PLATE.y - 166 };
+const THIRD  = { x: PLATE.x - 165, y: PLATE.y - 175 };
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
@@ -39,7 +39,7 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // ── Infield dirt — corners at outer vertices of each base ─────────────
-  const br = 8 * Math.SQRT2; // half-diagonal of a rotated base square (half-side=8)
+  const br = 21 * Math.SQRT2; // half-diagonal of rotated base (half-side=21, 18″ MLB rule)
   ctx.fillStyle = '#c68a4a';
   ctx.beginPath();
   ctx.moveTo(VERTEX.x,        VERTEX.y);         // back vertex of home plate
@@ -49,14 +49,14 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.closePath();
   ctx.fill();
 
-  // ── Inner grass (inside the basepath) ──────────────────────────────────
-  const shrink = 40; // inset the inner-grass polygon
+  // ── Inner grass — inset each dirt corner 40px toward center ───────────
+  const shrink = 40;
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,           VERTEX.y  - shrink);
-  ctx.lineTo(THIRD.x  + shrink, THIRD.y  + shrink * 0.3);
-  ctx.lineTo(SECOND.x,          SECOND.y + shrink);
-  ctx.lineTo(FIRST.x  - shrink, FIRST.y  + shrink * 0.3);
+  ctx.moveTo(PLATE.x,              VERTEX.y      - shrink);   // bottom corner up
+  ctx.lineTo(THIRD.x  - br + shrink, THIRD.y);               // left corner right
+  ctx.lineTo(SECOND.x,             SECOND.y - br + shrink);  // top corner down
+  ctx.lineTo(FIRST.x  + br - shrink, FIRST.y);               // right corner left
   ctx.closePath();
   ctx.fill();
 
@@ -105,7 +105,7 @@ function drawField(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.PI / 4);
-    ctx.fillRect(-8, -8, 16, 16);
+    ctx.fillRect(-21, -21, 42, 42);
     ctx.restore();
   });
 }
