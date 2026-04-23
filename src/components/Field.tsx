@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react';
 import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
 // All distances from VERTEX=(400,490). Foul lines: x+y=890 (right), x−y=−90 (left).
-// 90-ft side = 240px; VERTEX→SECOND = 340px (127.279ft diagonal). MLB pitcher = 60.5ft
-// (162px from VERTEX) < 66.8ft to second (178px) → pitcher IS closer to HOME, correct.
-// FIRST/THIRD edge on foul line: x+y = 890−21√2 ≈ 860.3 → center ≈ (555,305)/(245,305).
-const FIRST  = { x: PLATE.x + 155, y: PLATE.y - 165 }; // (555, 305)
+// Home→first/third: VERTEX to back corner (right-pointing corner, on foul line) = 90ft = 240px.
+//   Back corner of FIRST = (570,320) on right foul; center = back corner − (br,0) ≈ (540,320).
+//   Back corner of THIRD = (230,320) on left foul; center = back corner + (br,0) ≈ (260,320).
+// Home→second: VERTEX to center of second base = 127.279ft diagonal = 340px → (400,150).
+// MLB pitcher = 60.5ft (162px from VERTEX) < 66.8ft to second (178px) → closer to HOME. ✓
+const FIRST  = { x: PLATE.x + 140, y: PLATE.y - 150 }; // (540, 320)
 const SECOND = { x: PLATE.x,       y: PLATE.y - 320 }; // (400, 150) = VERTEX.y − 340
-const THIRD  = { x: PLATE.x - 155, y: PLATE.y - 165 }; // (245, 305)
+const THIRD  = { x: PLATE.x - 140, y: PLATE.y - 150 }; // (260, 320)
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
