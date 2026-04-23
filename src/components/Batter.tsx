@@ -34,10 +34,11 @@ export default function Batter({ ref }: Props) {
 function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
   const { x, y } = BATTER;
 
+  // Ready: bat upper-right (−45°). Swing clockwise → follow-through upper-left (~171°).
   const batAngle =
     g.swingT < 0
       ? -Math.PI / 4
-      : lerp(-Math.PI / 4, -Math.PI * 1.1, g.swingT);
+      : lerp(-Math.PI / 4, Math.PI * 0.95, g.swingT);
 
   // Body
   ctx.fillStyle = '#c22';

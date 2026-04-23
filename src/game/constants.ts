@@ -7,5 +7,5 @@ export const H = 560;
 // Second base:      (  0, -340) from PLATE
 export const PLATE   = { x: 400, y: 470 };
 export const PITCHER = { x: 400, y: 308 }; // 60.5ft / 127.3ft × 340px ≈ 162px above home
-export const BATTER  = { x: 470, y: 450 }; // right-handed, left batter's box
+export const BATTER  = { x: 445, y: 477 }; // center of right batter's box
 export const ZONE    = { x: 365, y: 380, w: 70, h: 60 };

@@ -10,7 +10,7 @@ const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
 const THIRD  = { x: PLATE.x - 169, y: PLATE.y - 170 };
 
 // Back vertex of home plate — where the two foul lines originate.
-const VERTEX = { x: PLATE.x, y: PLATE.y + 10 };
+const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
 
 export default function Field() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -79,16 +79,16 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = '#fff';
   ctx.fillRect(PITCHER.x - 16, PITCHER.y + 4, 32, 4);
 
-  // ── Home plate — pentagon, flat edge toward pitcher, vertex toward catcher ─
-  // hw=20, perp_side=10 → shoulder-to-vertex: Δx=20, Δy=20 → exactly 45°,
-  // matching the foul lines.  Right shoulder (420,460): 420+460=880 ✓ on foul line.
+  // ── Home plate — pentagon, 40px wide × 40px deep (matches 17"×17" ratio) ─
+  // Front edge (40px) → shoulders (20px down) → vertex (20px further, ±45°).
+  // Shoulder-to-vertex: Δx=20, Δy=20 → exactly 45°, aligns with foul lines.
   ctx.fillStyle = '#fff';
   ctx.beginPath();
   ctx.moveTo(PLATE.x - 20, PLATE.y - 20); // front-left
   ctx.lineTo(PLATE.x + 20, PLATE.y - 20); // front-right
-  ctx.lineTo(PLATE.x + 20, PLATE.y - 10); // right shoulder
-  ctx.lineTo(PLATE.x,      PLATE.y + 10); // back vertex  ← toward catcher
-  ctx.lineTo(PLATE.x - 20, PLATE.y - 10); // left shoulder
+  ctx.lineTo(PLATE.x + 20, PLATE.y);      // right shoulder
+  ctx.lineTo(PLATE.x,      PLATE.y + 20); // back vertex  ← toward catcher
+  ctx.lineTo(PLATE.x - 20, PLATE.y);      // left shoulder
   ctx.closePath();
   ctx.fill();
 
