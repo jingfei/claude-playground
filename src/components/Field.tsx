@@ -3,11 +3,11 @@ import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
 // Bases in fair territory.
 // Diamond side s = 340/√2 ≈ 240 px (home-to-second = 340 px).
-// First/third base centers moved ~15 px inward from the foul line so
-// the full base square sits inside fair territory.
-const FIRST  = { x: PLATE.x + 155, y: PLATE.y - 185 };
+// FIRST/THIRD placed so their outer face (cx+cy+8√2 ≈ 880) lands on the
+// foul lines (x+y = PLATE.x+PLATE.y+10 = 880 for right; x−y = −80 for left).
+const FIRST  = { x: PLATE.x + 169, y: PLATE.y - 170 };
 const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
-const THIRD  = { x: PLATE.x - 155, y: PLATE.y - 185 };
+const THIRD  = { x: PLATE.x - 169, y: PLATE.y - 170 };
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 10 };
@@ -37,13 +37,14 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.ellipse(PLATE.x, PLATE.y, 520, 430, 0, Math.PI, 0);
   ctx.fill();
 
-  // ── Infield dirt ───────────────────────────────────────────────────────
+  // ── Infield dirt — corners at outer vertices of each base ─────────────
+  const br = 8 * Math.SQRT2; // half-diagonal of a rotated base square (half-side=8)
   ctx.fillStyle = '#c68a4a';
   ctx.beginPath();
-  ctx.moveTo(VERTEX.x, VERTEX.y);
-  ctx.lineTo(THIRD.x,  THIRD.y);
-  ctx.lineTo(SECOND.x, SECOND.y);
-  ctx.lineTo(FIRST.x,  FIRST.y);
+  ctx.moveTo(VERTEX.x,        VERTEX.y);         // back vertex of home plate
+  ctx.lineTo(THIRD.x  - br,   THIRD.y);          // left  vertex of third base
+  ctx.lineTo(SECOND.x,        SECOND.y - br);    // top   vertex of second base
+  ctx.lineTo(FIRST.x  + br,   FIRST.y);          // right vertex of first base
   ctx.closePath();
   ctx.fill();
 
@@ -79,21 +80,23 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fillRect(PITCHER.x - 16, PITCHER.y + 4, 32, 4);
 
   // ── Home plate — pentagon, flat edge toward pitcher, vertex toward catcher ─
+  // hw=20, perp_side=10 → shoulder-to-vertex: Δx=20, Δy=20 → exactly 45°,
+  // matching the foul lines.  Right shoulder (420,460): 420+460=880 ✓ on foul line.
   ctx.fillStyle = '#fff';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x - 18, PLATE.y - 10); // front-left
-  ctx.lineTo(PLATE.x + 18, PLATE.y - 10); // front-right
-  ctx.lineTo(PLATE.x + 18, PLATE.y);      // right shoulder
+  ctx.moveTo(PLATE.x - 20, PLATE.y - 20); // front-left
+  ctx.lineTo(PLATE.x + 20, PLATE.y - 20); // front-right
+  ctx.lineTo(PLATE.x + 20, PLATE.y - 10); // right shoulder
   ctx.lineTo(PLATE.x,      PLATE.y + 10); // back vertex  ← toward catcher
-  ctx.lineTo(PLATE.x - 18, PLATE.y);      // left shoulder
+  ctx.lineTo(PLATE.x - 20, PLATE.y - 10); // left shoulder
   ctx.closePath();
   ctx.fill();
 
   // ── Batter's boxes ─────────────────────────────────────────────────────
   ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(PLATE.x + 20,  PLATE.y - 30, 46, 74);
-  ctx.strokeRect(PLATE.x - 66,  PLATE.y - 30, 46, 74);
+  ctx.strokeRect(PLATE.x + 22,  PLATE.y - 30, 46, 74);
+  ctx.strokeRect(PLATE.x - 68,  PLATE.y - 30, 46, 74);
 
   // ── Bases ──────────────────────────────────────────────────────────────
   ctx.fillStyle = '#fff';
