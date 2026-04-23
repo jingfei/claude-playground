@@ -74,7 +74,7 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.beginPath();
   ctx.moveTo(PLATE.x,        VERTEX.y - 40);      // home side
   ctx.lineTo(THIRD.x,        THIRD.y  - br);      // top of third
-  ctx.lineTo(SECOND.x,       SECOND.y + br);      // bottom of second
+  ctx.lineTo(SECOND.x,       SECOND.y);            // center of second
   ctx.lineTo(FIRST.x,        FIRST.y  - br);      // top of first
   ctx.closePath();
   ctx.fill();
