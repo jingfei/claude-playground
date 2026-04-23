@@ -69,15 +69,17 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // ── Inner grass diamond ─────────────────────────────────────────────────
-  // Home-side edges are parallel to foul lines through centers of first/third.
-  // Their intersection: x+y = FIRST.x+FIRST.y (right parallel), x=PLATE.x → y=460.
-  const homeCornerY = FIRST.x + FIRST.y - PLATE.x;
+  // All four edges are derived from foul-line geometry:
+  //   Home corner: intersection of foul-line parallels through first/third centers → y=460
+  //   Second corner: intersection of lines perpendicular to foul lines through first/third centers → y=180
+  const homeCornerY   = FIRST.x + FIRST.y - PLATE.x;  // 540+320-400 = 460
+  const secondCornerY = FIRST.y - (FIRST.x - PLATE.x); // 320-140     = 180
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,  homeCornerY); // intersection of foul-line parallels
-  ctx.lineTo(THIRD.x,  THIRD.y);    // center of third
-  ctx.lineTo(SECOND.x, SECOND.y);   // center of second
-  ctx.lineTo(FIRST.x,  FIRST.y);    // center of first
+  ctx.moveTo(PLATE.x,  homeCornerY);   // home corner
+  ctx.lineTo(THIRD.x,  THIRD.y);       // center of third
+  ctx.lineTo(PLATE.x,  secondCornerY); // second corner (perp lines meet)
+  ctx.lineTo(FIRST.x,  FIRST.y);       // center of first
   ctx.closePath();
   ctx.fill();
 
