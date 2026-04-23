@@ -69,13 +69,13 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // ── Inner grass diamond ─────────────────────────────────────────────────
-  const shrink = 40;
+  // Edges touch the UP corners of first/third (towards second) and DOWN corner of second.
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,                VERTEX.y       - shrink);
-  ctx.lineTo(THIRD.x  - br + shrink, THIRD.y);
-  ctx.lineTo(SECOND.x,               SECOND.y - br + shrink);
-  ctx.lineTo(FIRST.x  + br - shrink, FIRST.y);
+  ctx.moveTo(PLATE.x,        VERTEX.y - 40);      // home side
+  ctx.lineTo(THIRD.x,        THIRD.y  - br);      // top of third
+  ctx.lineTo(SECOND.x,       SECOND.y + br);      // bottom of second
+  ctx.lineTo(FIRST.x,        FIRST.y  - br);      // top of first
   ctx.closePath();
   ctx.fill();
 
