@@ -69,13 +69,15 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // ── Inner grass diamond ─────────────────────────────────────────────────
-  // Edges touch the UP corners of first/third (towards second) and DOWN corner of second.
+  // Home-side edges are parallel to foul lines through centers of first/third.
+  // Their intersection: x+y = FIRST.x+FIRST.y (right parallel), x=PLATE.x → y=460.
+  const homeCornerY = FIRST.x + FIRST.y - PLATE.x;
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,        VERTEX.y - 40);      // home side
-  ctx.lineTo(THIRD.x,        THIRD.y  - br);      // top of third
-  ctx.lineTo(SECOND.x,       SECOND.y);            // center of second
-  ctx.lineTo(FIRST.x,        FIRST.y  - br);      // top of first
+  ctx.moveTo(PLATE.x,  homeCornerY); // intersection of foul-line parallels
+  ctx.lineTo(THIRD.x,  THIRD.y);    // center of third
+  ctx.lineTo(SECOND.x, SECOND.y);   // center of second
+  ctx.lineTo(FIRST.x,  FIRST.y);    // center of first
   ctx.closePath();
   ctx.fill();
 
