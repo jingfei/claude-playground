@@ -1,14 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
-// Bases in fair territory.  New MLB rule (2023): 18″ × 18″ base (was 15″).
-// Scale: home plate 40px = 17″ → 18″ = 42px side, half-side=21px, half-diag=21√2≈29.7px.
-// VERTEX=(400,490); foul lines: x+y=890 (right), x−y=−90 (left).
-// Foul-side edge on foul line when FIRST.x+21√2+FIRST.y=890 → center sum≈860.3.
-// At 90ft scale (~240px from PLATE): FIRST=(565,295), THIRD=(235,295).
-const FIRST  = { x: PLATE.x + 165, y: PLATE.y - 175 };
+// Bases: perfect 90-ft square (340px = 127.279ft → side = 340/√2 ≈ 170px).
+// New MLB rule (2023): 18″ × 18″ base; half-side=21px, half-diag=21√2≈30px.
+const FIRST  = { x: PLATE.x + 170, y: PLATE.y - 170 };
 const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
-const THIRD  = { x: PLATE.x - 165, y: PLATE.y - 175 };
+const THIRD  = { x: PLATE.x - 170, y: PLATE.y - 170 };
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
@@ -29,66 +26,90 @@ export default function Field() {
 }
 
 function drawField(ctx: CanvasRenderingContext2D): void {
-  // ── Grass ──────────────────────────────────────────────────────────────
+  // MLB scale: 340px = 127.279ft (home-to-second diagonal)
+  const SCALE  = 340 / 127.279;
+  const arcR   = 95 * SCALE;   // ≈ 254px  95-ft infield arc centered on mound
+  const baseR  = 13 * SCALE;   // ≈  35px  13-ft dirt circle around each base
+  const moundR =  9 * SCALE;   // ≈  24px  18-ft mound diameter → 9-ft radius
+  const br     = 21 * Math.SQRT2; // ≈  30px  half-diagonal of 18″ rotated base
+
+  // ── Outfield grass ─────────────────────────────────────────────────────
   ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, 0, W, H);
-
   ctx.fillStyle = '#55a544';
   ctx.beginPath();
   ctx.ellipse(PLATE.x, PLATE.y, 520, 430, 0, Math.PI, 0);
   ctx.fill();
 
-  // ── Infield dirt — corners at outer vertices of each base ─────────────
-  const br = 21 * Math.SQRT2; // half-diagonal of rotated base (half-side=21, 18″ MLB rule)
+  // ── Infield dirt — bounded by foul lines and 95-ft arc ─────────────────
+  // Solve for arc ∩ right foul line (x+y = VERTEX.x+VERTEX.y):
+  //   let u = x−PITCHER.x; 2u²−2·FmPy·u+(FmPy²−arcR²)=0
+  //   FmPy = foulSum−PITCHER.x−PITCHER.y
+  const foulSum = VERTEX.x + VERTEX.y;
+  const fmpy    = foulSum - PITCHER.x - PITCHER.y;
+  const chord   = Math.sqrt(2 * arcR * arcR - fmpy * fmpy);
+  const uR      = (fmpy + chord) / 2;
+  const arcRX   = PITCHER.x + uR;
+  const arcRY   = foulSum - arcRX;               // on right foul line
+  const arcLX   = 2 * PITCHER.x - arcRX;        // symmetric left intersection
+  const arcLY   = arcRY;
+  const angR    = Math.atan2(arcRY - PITCHER.y, arcRX - PITCHER.x);
+  const angL    = Math.atan2(arcLY - PITCHER.y, arcLX - PITCHER.x);
+
   ctx.fillStyle = '#c68a4a';
   ctx.beginPath();
-  ctx.moveTo(VERTEX.x,        VERTEX.y);         // back vertex of home plate
-  ctx.lineTo(THIRD.x  - br,   THIRD.y);          // left  vertex of third base
-  ctx.lineTo(SECOND.x,        SECOND.y - br);    // top   vertex of second base
-  ctx.lineTo(FIRST.x  + br,   FIRST.y);          // right vertex of first base
-  ctx.closePath();
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(arcRX, arcRY);                              // up right foul line
+  ctx.arc(PITCHER.x, PITCHER.y, arcR, angR, angL, true); // arc through top (anticlockwise)
+  ctx.closePath();                                       // back down left foul line
   ctx.fill();
 
-  // ── Inner grass — inset each dirt corner 40px toward center ───────────
+  // ── Inner grass diamond ─────────────────────────────────────────────────
   const shrink = 40;
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,              VERTEX.y      - shrink);   // bottom corner up
-  ctx.lineTo(THIRD.x  - br + shrink, THIRD.y);               // left corner right
-  ctx.lineTo(SECOND.x,             SECOND.y - br + shrink);  // top corner down
-  ctx.lineTo(FIRST.x  + br - shrink, FIRST.y);               // right corner left
+  ctx.moveTo(PLATE.x,               VERTEX.y      - shrink);
+  ctx.lineTo(THIRD.x  - br + shrink, THIRD.y);
+  ctx.lineTo(SECOND.x,              SECOND.y - br + shrink);
+  ctx.lineTo(FIRST.x  + br - shrink, FIRST.y);
   ctx.closePath();
   ctx.fill();
 
-  // ── Foul lines — exactly 90° (±45° from vertical), start at plate vertex ─
+  // ── Foul lines — 45° from VERTEX ───────────────────────────────────────
   ctx.strokeStyle = 'rgba(255,255,255,0.65)';
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
-  const reach = 700; // long enough to exit the canvas
+  const reach = 700;
   ctx.beginPath();
   ctx.moveTo(VERTEX.x, VERTEX.y);
-  ctx.lineTo(VERTEX.x + reach, VERTEX.y - reach); // right foul line  +45°
+  ctx.lineTo(VERTEX.x + reach, VERTEX.y - reach);
   ctx.moveTo(VERTEX.x, VERTEX.y);
-  ctx.lineTo(VERTEX.x - reach, VERTEX.y - reach); // left foul line   −45°
+  ctx.lineTo(VERTEX.x - reach, VERTEX.y - reach);
   ctx.stroke();
 
-  // ── Pitcher's mound ────────────────────────────────────────────────────
+  // ── Dirt circles around first, second, third (13-ft radius each) ───────
+  ctx.fillStyle = '#c68a4a';
+  [FIRST, SECOND, THIRD].forEach(({ x, y }) => {
+    ctx.beginPath();
+    ctx.arc(x, y, baseR, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // ── Pitcher's mound (18-ft diameter circle) ────────────────────────────
   ctx.fillStyle = '#b57a3a';
   ctx.beginPath();
-  ctx.ellipse(PITCHER.x, PITCHER.y + 10, 55, 38, 0, 0, Math.PI * 2);
+  ctx.arc(PITCHER.x, PITCHER.y, moundR, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.fillRect(PITCHER.x - 16, PITCHER.y + 4, 32, 4);
+  ctx.fillRect(PITCHER.x - 16, PITCHER.y + 2, 32, 4); // pitcher's rubber (24″×6″)
 
-  // ── Home plate — pentagon, 40px wide × 40px deep (matches 17"×17" ratio) ─
-  // Front edge (40px) → shoulders (20px down) → vertex (20px further, ±45°).
-  // Shoulder-to-vertex: Δx=20, Δy=20 → exactly 45°, aligns with foul lines.
+  // ── Home plate — 40px wide × 40px deep, matches 17″×17″ ratio ──────────
   ctx.fillStyle = '#fff';
   ctx.beginPath();
   ctx.moveTo(PLATE.x - 20, PLATE.y - 20); // front-left
   ctx.lineTo(PLATE.x + 20, PLATE.y - 20); // front-right
   ctx.lineTo(PLATE.x + 20, PLATE.y);      // right shoulder
-  ctx.lineTo(PLATE.x,      PLATE.y + 20); // back vertex  ← toward catcher
+  ctx.lineTo(PLATE.x,      PLATE.y + 20); // back vertex
   ctx.lineTo(PLATE.x - 20, PLATE.y);      // left shoulder
   ctx.closePath();
   ctx.fill();
@@ -96,10 +117,10 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   // ── Batter's boxes ─────────────────────────────────────────────────────
   ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(PLATE.x + 22,  PLATE.y - 30, 46, 74);
-  ctx.strokeRect(PLATE.x - 68,  PLATE.y - 30, 46, 74);
+  ctx.strokeRect(PLATE.x + 22, PLATE.y - 30, 46, 74);
+  ctx.strokeRect(PLATE.x - 68, PLATE.y - 30, 46, 74);
 
-  // ── Bases ──────────────────────────────────────────────────────────────
+  // ── Bases (18″ square, rotated 45°) ────────────────────────────────────
   ctx.fillStyle = '#fff';
   [FIRST, SECOND, THIRD].forEach(({ x, y }) => {
     ctx.save();
