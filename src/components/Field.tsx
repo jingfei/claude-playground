@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
-// Bases: perfect 90-ft square (340px = 127.279ft → side = 340/√2 ≈ 170px).
-// New MLB rule (2023): 18″ × 18″ base; half-side=21px, half-diag=21√2≈30px.
-const FIRST  = { x: PLATE.x + 170, y: PLATE.y - 170 };
-const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
-const THIRD  = { x: PLATE.x - 170, y: PLATE.y - 170 };
+// All distances from VERTEX=(400,490). Foul lines: x+y=890 (right), x−y=−90 (left).
+// 90-ft side = 240px; VERTEX→SECOND = 340px (127.279ft diagonal). MLB pitcher = 60.5ft
+// (162px from VERTEX) < 66.8ft to second (178px) → pitcher IS closer to HOME, correct.
+// FIRST/THIRD edge on foul line: x+y = 890−21√2 ≈ 860.3 → center ≈ (555,305)/(245,305).
+const FIRST  = { x: PLATE.x + 155, y: PLATE.y - 165 }; // (555, 305)
+const SECOND = { x: PLATE.x,       y: PLATE.y - 320 }; // (400, 150) = VERTEX.y − 340
+const THIRD  = { x: PLATE.x - 155, y: PLATE.y - 165 }; // (245, 305)
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
@@ -29,7 +31,7 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   // MLB scale: 340px = 127.279ft (home-to-second diagonal)
   const SCALE  = 340 / 127.279;
   const arcR   = 95 * SCALE;   // ≈ 254px  95-ft infield arc centered on mound
-  const baseR  = 13 * SCALE;   // ≈  35px  13-ft dirt circle around each base
+  const baseR  = 15 * SCALE;   // ≈  40px  15-ft dirt circle around each base
   const moundR =  9 * SCALE;   // ≈  24px  18-ft mound diameter → 9-ft radius
   const br     = 21 * Math.SQRT2; // ≈  30px  half-diagonal of 18″ rotated base
 
@@ -68,9 +70,9 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   const shrink = 40;
   ctx.fillStyle = '#4a9a3a';
   ctx.beginPath();
-  ctx.moveTo(PLATE.x,               VERTEX.y      - shrink);
+  ctx.moveTo(PLATE.x,                VERTEX.y       - shrink);
   ctx.lineTo(THIRD.x  - br + shrink, THIRD.y);
-  ctx.lineTo(SECOND.x,              SECOND.y - br + shrink);
+  ctx.lineTo(SECOND.x,               SECOND.y - br + shrink);
   ctx.lineTo(FIRST.x  + br - shrink, FIRST.y);
   ctx.closePath();
   ctx.fill();
@@ -87,13 +89,30 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(VERTEX.x - reach, VERTEX.y - reach);
   ctx.stroke();
 
-  // ── Dirt circles around first, second, third (13-ft radius each) ───────
+  // ── Dirt circles around first, second, third — clipped to fair territory ─
+  // Fair territory: VERTEX → right foul (800,90) → top-right → top-left → left foul (0,90)
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(W, VERTEX.y - (W - VERTEX.x));   // right foul line at canvas edge
+  ctx.lineTo(W, 0);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(0, VERTEX.y - VERTEX.x);         // left foul line at canvas edge
+  ctx.closePath();
+  ctx.clip();
   ctx.fillStyle = '#c68a4a';
   [FIRST, SECOND, THIRD].forEach(({ x, y }) => {
     ctx.beginPath();
     ctx.arc(x, y, baseR, 0, Math.PI * 2);
     ctx.fill();
   });
+  ctx.restore();
+
+  // ── Dirt circle around home plate (may exceed foul lines) ───────────────
+  ctx.fillStyle = '#c68a4a';
+  ctx.beginPath();
+  ctx.arc(PLATE.x, PLATE.y, baseR, 0, Math.PI * 2);
+  ctx.fill();
 
   // ── Pitcher's mound (18-ft diameter circle) ────────────────────────────
   ctx.fillStyle = '#b57a3a';
