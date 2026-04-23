@@ -3,11 +3,12 @@ import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
 
 // Bases in fair territory.
 // Diamond side s = 340/√2 ≈ 240 px (home-to-second = 340 px).
-// FIRST/THIRD placed so their outer face (cx+cy+8√2 ≈ 880) lands on the
-// foul lines (x+y = PLATE.x+PLATE.y+10 = 880 for right; x−y = −80 for left).
-const FIRST  = { x: PLATE.x + 169, y: PLATE.y - 170 };
+// VERTEX = (400, 490); foul lines: x+y=890 (right), x−y=−90 (left).
+// Rotated base foul-edge lies on line when center: FIRST.x+FIRST.y = 890−8√2 ≈ 878.7
+// → FIRST ≈ (575, 304), THIRD ≈ (225, 304).
+const FIRST  = { x: PLATE.x + 175, y: PLATE.y - 166 };
 const SECOND = { x: PLATE.x,       y: PLATE.y - 340 };
-const THIRD  = { x: PLATE.x - 169, y: PLATE.y - 170 };
+const THIRD  = { x: PLATE.x - 175, y: PLATE.y - 166 };
 
 // Back vertex of home plate — where the two foul lines originate.
 const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
