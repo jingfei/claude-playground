@@ -8,4 +8,5 @@ export const H = 560;
 export const PLATE   = { x: 400, y: 470 };
 export const PITCHER = { x: 400, y: 328 }; // 60.5ft from rear vertex of home plate: VERTEX.y(490) − 162px
 export const BATTER  = { x: 445, y: 477 }; // center of right batter's box
-export const ZONE    = { x: 365, y: 410, w: 70, h: 60 };
+export const ZONE     = { x: 365, y: 410, w: 70, h: 60 };
+export const OUTFIELD = { rx: 520, ry: 430 }; // outfield grass ellipse semi-axes from PLATE

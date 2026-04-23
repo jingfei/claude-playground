@@ -1,4 +1,4 @@
-import { PLATE, ZONE } from './constants.ts';
+import { PLATE, ZONE, OUTFIELD } from './constants.ts';
 import type { GameState } from '../types.ts';
 
 export function lerp(a: number, b: number, t: number): number {
@@ -66,15 +66,19 @@ export function resolve(g: GameState): void {
 
     if (goodTiming && g.inZone) {
       const angle = -Math.PI / 2 + (Math.random() - 0.5) * (Math.PI / 2);
-      const dist = 180 + Math.random() * 260;
+      const dist  = 200 + Math.random() * 300; // 200–500 px from PLATE
       const hx = PLATE.x + Math.cos(angle) * dist;
       const hy = PLATE.y + Math.sin(angle) * dist;
 
-      let type = 'SINGLE';
-      const r = Math.random();
-      if (dist > 380) type = 'HOME RUN!';
-      else if (r > 0.85) type = 'TRIPLE';
-      else if (r > 0.55) type = 'DOUBLE';
+      // Fence distance at this angle (outfield ellipse semi-axes rx, ry)
+      const { rx, ry } = OUTFIELD;
+      const fenceDist = (rx * ry) / Math.sqrt((ry * Math.cos(angle)) ** 2 + (rx * Math.sin(angle)) ** 2);
+
+      let type: string;
+      if      (dist >= fenceDist)        type = 'HOME RUN!';
+      else if (dist >= fenceDist * 0.90) type = 'TRIPLE';
+      else if (dist >= fenceDist * 0.75) type = 'DOUBLE';
+      else                               type = 'SINGLE';
       g.hit = { x: hx, y: hy, type, t: 0 };
       g.result = 'HIT!';
       g.balls = 0;
