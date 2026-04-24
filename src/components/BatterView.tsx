@@ -10,9 +10,9 @@ interface Props {
 
 // Batter POV layout — pitcher in top-center (20% down), zone in bottom-center, batter beside.
 const POV_PITCHER = { x: W / 2, y: H * 0.22 };           // (400, ~123)
-const POV_ZONE    = { x: 270, y: 340, w: 200, h: 180 };  // strike zone rectangle
+const POV_ZONE    = { x: 300, y: 340, w: 200, h: 180 };  // strike zone centered at x=400
 const POV_BATTER  = { x: 590, y: 430 };                  // right-handed, right of zone
-const POV_RELEASE = { x: POV_PITCHER.x - 20, y: POV_PITCHER.y + 18 };
+const POV_RELEASE = { x: W / 2, y: POV_PITCHER.y + 18 }; // (400, ~141) — above zone center
 
 function mapBallEnd(end: { x: number; y: number }) {
   return {
@@ -209,21 +209,27 @@ function drawStrikeZone(ctx: CanvasRenderingContext2D): void {
 }
 
 function drawPitchBall(ctx: CanvasRenderingContext2D, g: GameState): void {
-  if (g.phase !== 'pitching' || g.ballT < 0.3 || !g.ballEnd) return;
-  const t = (g.ballT - 0.3) / 0.7;
-  const end = mapBallEnd(g.ballEnd);
-  const x = lerp(POV_RELEASE.x, end.x, t);
-  const y = lerp(POV_RELEASE.y, end.y, t);
-  const r = 3 + t * t * 13; // quadratic growth for perspective
+  if (!g.ballEnd) return;
 
-  // Shadow at ground level
-  const shadowY = POV_ZONE.y + POV_ZONE.h + 22;
-  ctx.fillStyle = `rgba(0,0,0,${0.08 + t * 0.22})`;
-  ctx.beginPath();
-  ctx.ellipse(x, shadowY, r * 0.7, r * 0.3, 0, 0, Math.PI * 2);
-  ctx.fill();
+  if (g.phase === 'pitching' && g.ballT >= 0.3) {
+    const t = (g.ballT - 0.3) / 0.7;
+    const end = mapBallEnd(g.ballEnd);
+    const x = lerp(POV_RELEASE.x, end.x, t);
+    const y = lerp(POV_RELEASE.y, end.y, t);
+    const r = 3 + t * t * 13; // quadratic growth for perspective
 
-  drawBall(ctx, x, y, r);
+    // Shadow at ground level
+    const shadowY = POV_ZONE.y + POV_ZONE.h + 22;
+    ctx.fillStyle = `rgba(0,0,0,${0.08 + t * 0.22})`;
+    ctx.beginPath();
+    ctx.ellipse(x, shadowY, r * 0.7, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawBall(ctx, x, y, r);
+  } else if (g.phase === 'result' && !g.hit) {
+    // Keep ball visible at final position so the user can see where it crossed
+    const end = mapBallEnd(g.ballEnd);
+    drawBall(ctx, end.x, end.y, 16);
+  }
 }
 
 function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
