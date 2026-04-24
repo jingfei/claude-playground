@@ -21,6 +21,16 @@ const PROJ_S  = 10.0;                        // horizontal spread scale
 const PROJ_Y0 = H - 18;                      // home plate screen Y  (542)
 const PROJ_C  = PROJ_Y0 - H * 0.24;          // Y range to outfield horizon (≈408)
 
+// Foul-line far endpoints — depth 400 along the 45° diagonals. projectToPOV is a
+// function declaration so it is hoisted and safe to call in these const initializers.
+const pvFoulR = projectToPOV(PLATE.x + 400, PLATE.y - 400);  // ≈ (829, 178)
+const pvFoulL = projectToPOV(PLATE.x - 400, PLATE.y - 400);  // ≈ (-29, 178)
+// x coordinate on the right/left visual foul line at batter-view screen y=pvY
+const bvFoulRX = (pvY: number) =>
+  W / 2 + 110 + ((PROJ_Y0 - pvY) / (PROJ_Y0 - pvFoulR.y)) * (pvFoulR.x - (W / 2 + 110));
+const bvFoulLX = (pvY: number) =>
+  W / 2 - 110 + ((PROJ_Y0 - pvY) / (PROJ_Y0 - pvFoulL.y)) * (pvFoulL.x - (W / 2 - 110));
+
 function projectToPOV(tx: number, ty: number): { x: number; y: number } {
   const depth   = PLATE.y - ty;
   const lateral = tx - PLATE.x;
@@ -68,22 +78,34 @@ export default function BatterView({ ref }: Props) {
 }
 
 function drawFieldLines(ctx: CanvasRenderingContext2D): void {
-  // Base positions in top-down coords (matching Field.tsx definitions)
-  const pvFirst  = projectToPOV(PLATE.x + 140, PLATE.y - 150);  // (540, 320)
-  const pvSecond = projectToPOV(PLATE.x,       PLATE.y - 320);  // (400, 150)
-  const pvThird  = projectToPOV(PLATE.x - 140, PLATE.y - 150);  // (260, 320)
-
-  // Far ends of foul lines — depth 400 along the 45° diagonals into the outfield
-  const pvFoulR = projectToPOV(PLATE.x + 400, PLATE.y - 400);
-  const pvFoulL = projectToPOV(PLATE.x - 400, PLATE.y - 400);
+  // First/third base depth = PLATE.y - 320 = 150; place them exactly ON the visual foul lines
+  // using bvFoulRX/bvFoulLX so their position is always consistent with the chalk lines.
+  const baseDepth = 150;
+  const pvBaseY  = PROJ_Y0 - PROJ_C * baseDepth / (baseDepth + PROJ_D);  // ≈ 233
+  const pvFirst  = { x: bvFoulRX(pvBaseY), y: pvBaseY };
+  const pvSecond = projectToPOV(PLATE.x, PLATE.y - 320);
+  const pvThird  = { x: bvFoulLX(pvBaseY), y: pvBaseY };
 
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
 
-  // Foul lines (white chalk)
+  // Basepath dirt strips (home → first, home → third), drawn before chalk so lines sit on top
+  ctx.strokeStyle = '#a56d2f';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(hpx + 110, hpy);
+  ctx.lineTo(pvFirst.x, pvFirst.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hpx - 110, hpy);
+  ctx.lineTo(pvThird.x, pvThird.y);
+  ctx.stroke();
+
+  // Foul lines (white chalk) on top of the dirt strips
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.80)';
   ctx.lineWidth = 2;
-  ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(hpx + 110, hpy);
   ctx.lineTo(pvFoulR.x, pvFoulR.y);
@@ -139,9 +161,18 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = ofGrass;
   ctx.fillRect(0, H * 0.26, W, H * 0.14);
 
-  // Infield dirt — strip between outfield grass and infield grass
-  ctx.fillStyle = '#b07838';
-  ctx.fillRect(0, H * 0.40, W, H * 0.03);
+  // Infield dirt — strip between outfield grass and infield grass, clipped to fair territory
+  {
+    const topY = H * 0.40, botY = H * 0.43;
+    ctx.fillStyle = '#b07838';
+    ctx.beginPath();
+    ctx.moveTo(bvFoulLX(topY), topY);
+    ctx.lineTo(bvFoulRX(topY), topY);
+    ctx.lineTo(bvFoulRX(botY), botY);
+    ctx.lineTo(bvFoulLX(botY), botY);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   // Infield grass — extends to screen bottom; foul-territory corners at the near end show grass
   const ifGrass = ctx.createLinearGradient(0, H * 0.43, 0, H * 0.72);
@@ -157,46 +188,25 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Near dirt — perspective projection of the home-plate dirt circle (baseR ≈ 40 px in
-  // top-down, matching Field.tsx) clipped to fair territory between the foul lines.
+  // Near dirt — small strip just above home plate, clipped to fair-territory cone + screen bottom.
+  // Starts at dirtTopY (≈490, well below the strike zone at y=340), fades toward home plate.
   {
-    const foulDepth = 400;
-    const pvFoulR = projectToPOV(PLATE.x + foulDepth, PLATE.y - foulDepth);
-    const pvFoulL = projectToPOV(PLATE.x - foulDepth, PLATE.y - foulDepth);
-    const DIRT_R  = 15 * (340 / 127.279);  // 15-ft radius ≈ 40 px — same as baseR in Field.tsx
-    const dirtTopY = PROJ_Y0 - PROJ_C * DIRT_R / (DIRT_R + PROJ_D); // projected arc apex ≈ 357
-
-    // Clip region: fair-territory cone (home-plate corners → foul far ends) plus full screen bottom
+    const dirtTopY = PROJ_Y0 - 52;  // ≈ 490
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(W / 2 - 110, PROJ_Y0);   // left home-plate corner
+    ctx.moveTo(W / 2 - 110, PROJ_Y0);
     ctx.lineTo(pvFoulL.x, pvFoulL.y);
     ctx.lineTo(pvFoulR.x, pvFoulR.y);
-    ctx.lineTo(W / 2 + 110, PROJ_Y0);   // right home-plate corner
+    ctx.lineTo(W / 2 + 110, PROJ_Y0);
     ctx.lineTo(W, H);
     ctx.lineTo(0, H);
     ctx.closePath();
     ctx.clip();
-
-    // Draw the projected forward semicircle of the dirt circle as the top boundary
     const dirtGrad = ctx.createLinearGradient(0, dirtTopY, 0, H);
     dirtGrad.addColorStop(0, '#b87a3c');
     dirtGrad.addColorStop(1, '#8d5a2a');
     ctx.fillStyle = dirtGrad;
-    ctx.beginPath();
-    for (let i = 0; i <= 32; i++) {
-      const phi = (i / 32) * Math.PI;  // phi=0: left side; phi=π/2: apex; phi=π: right side
-      const p = projectToPOV(
-        PLATE.x - DIRT_R * Math.cos(phi),
-        PLATE.y - DIRT_R * Math.sin(phi),
-      );
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    }
-    ctx.lineTo(W, H);
-    ctx.lineTo(0, H);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillRect(0, dirtTopY, W, H - dirtTopY);
     ctx.restore();
   }
 
