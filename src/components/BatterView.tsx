@@ -91,13 +91,22 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
 
-  // Basepath dirt strips — first→second and second→third; home→first/third omitted because
-  // they run from home plate through the pitcher's visual depth toward first/third and look
-  // like pitcher→first/third in batter POV.
+  // Basepath dirt strips — all four diamond sides.
+  // home→first/third: butt cap so the strip ends flush at the foul line.
+  // first→second/third: round cap for natural termination at second base.
   ctx.strokeStyle = '#a56d2f';
   ctx.lineWidth = 14;
-  ctx.lineCap = 'round';
   ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  ctx.moveTo(hpx + 110, hpy);
+  ctx.lineTo(bvFoulRX(pvBaseY), pvBaseY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hpx - 110, hpy);
+  ctx.lineTo(bvFoulLX(pvBaseY), pvBaseY);
+  ctx.stroke();
+  ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(pvFirst.x, pvFirst.y);
   ctx.lineTo(pvSecond.x, pvSecond.y);
@@ -119,17 +128,53 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(pvFoulL.x, pvFoulL.y);
   ctx.stroke();
 
-  // Base squares (white, perspective-scaled to match home plate proportions)
-  const drawBase = (pv: { x: number; y: number }, size: number) => {
+  // Base shapes — first/third are pentagons: the outer edge follows the foul line so
+  // the base stays entirely in fair territory at every y within the base height.
+  // (A screen-aligned square would bleed into foul territory at the bottom corner
+  // because the foul line angles inward as it approaches home plate.)
+  const half = BASE_1_3 / 2;
+  const baseBorder = 'rgba(180, 180, 180, 0.8)';
+
+  // First base: right edge vertical from top to center, then follows right foul line to bottom
+  {
+    const t = pvFirst.y - half, b = pvFirst.y + half;
+    const l = pvFirst.x - half, r = pvFirst.x + half;  // r == bvFoulRX(pvFirst.y) by construction
     ctx.fillStyle = '#fff';
-    ctx.fillRect(pv.x - size / 2, pv.y - size / 2, size, size);
-    ctx.strokeStyle = 'rgba(180, 180, 180, 0.8)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(pv.x - size / 2, pv.y - size / 2, size, size);
-  };
-  drawBase(pvFirst,  BASE_1_3);
-  drawBase(pvSecond, 24);
-  drawBase(pvThird,  BASE_1_3);
+    ctx.beginPath();
+    ctx.moveTo(l, t);
+    ctx.lineTo(r, t);
+    ctx.lineTo(r, pvFirst.y);        // vertical down to center (on foul line)
+    ctx.lineTo(bvFoulRX(b), b);      // follow foul line to base bottom
+    ctx.lineTo(l, b);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // Second base: plain square (centered, no foul-line clipping needed)
+  {
+    const s = 24;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(pvSecond.x - s / 2, pvSecond.y - s / 2, s, s);
+    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1;
+    ctx.strokeRect(pvSecond.x - s / 2, pvSecond.y - s / 2, s, s);
+  }
+
+  // Third base: left edge vertical from top to center, then follows left foul line to bottom
+  {
+    const t = pvThird.y - half, b = pvThird.y + half;
+    const r = pvThird.x + half, l = pvThird.x - half;  // l == bvFoulLX(pvThird.y) by construction
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(r, t);
+    ctx.lineTo(l, t);
+    ctx.lineTo(l, pvThird.y);        // vertical down to center (on foul line)
+    ctx.lineTo(bvFoulLX(b), b);      // follow foul line to base bottom
+    ctx.lineTo(r, b);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
+  }
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
@@ -158,19 +203,6 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ifGrass.addColorStop(1, '#55a544');
   ctx.fillStyle = ifGrass;
   ctx.fillRect(0, H * 0.40, W, H * 0.60);
-
-  // Infield dirt — clipped to fair territory, drawn on top of grass so foul territory stays green
-  {
-    const topY = H * 0.40, botY = H * 0.43;
-    ctx.fillStyle = '#b07838';
-    ctx.beginPath();
-    ctx.moveTo(bvFoulLX(topY), topY);
-    ctx.lineTo(bvFoulRX(topY), topY);
-    ctx.lineTo(bvFoulRX(botY), botY);
-    ctx.lineTo(bvFoulLX(botY), botY);
-    ctx.closePath();
-    ctx.fill();
-  }
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
