@@ -17,7 +17,7 @@ const POV_RELEASE = { x: W / 2, y: POV_PITCHER.y + 18 }; // (400, ~186) — abov
 // Perspective projection: maps top-down (tx, ty) to batter-view screen coords.
 // Calibrated so depth=142 (pitcher mound) → pvY=240 and depth→∞ → pvY≈H*0.24 (outfield wall).
 const PROJ_D  = 48;                          // depth constant (controls perspective curve)
-const PROJ_S  = 7.0;                         // horizontal spread scale
+const PROJ_S  = 10.0;                        // horizontal spread scale
 const PROJ_Y0 = H - 18;                      // home plate screen Y  (542)
 const PROJ_C  = PROJ_Y0 - H * 0.24;          // Y range to outfield horizon (≈408)
 
@@ -143,26 +143,62 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = '#b07838';
   ctx.fillRect(0, H * 0.40, W, H * 0.03);
 
-  // Infield grass (BIG — pitcher stands here)
+  // Infield grass — extends to screen bottom; foul-territory corners at the near end show grass
   const ifGrass = ctx.createLinearGradient(0, H * 0.43, 0, H * 0.72);
   ifGrass.addColorStop(0, '#4a9a3a');
   ifGrass.addColorStop(1, '#55a544');
   ctx.fillStyle = ifGrass;
-  ctx.fillRect(0, H * 0.43, W, H * 0.29);
+  ctx.fillRect(0, H * 0.43, W, H * 0.57);  // full remainder of screen
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
-  const moundY = POV_PITCHER.y + 72;   // feet level ≈ 240, inside infield grass (y≈241+)
+  const moundY = POV_PITCHER.y + 72;
   ctx.fillStyle = '#a56d2f';
   ctx.beginPath();
   ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Infield dirt (near camera — basepath / batter area)
-  const ifDirtNear = ctx.createLinearGradient(0, H * 0.72, 0, H);
-  ifDirtNear.addColorStop(0, '#b87a3c');
-  ifDirtNear.addColorStop(1, '#8d5a2a');
-  ctx.fillStyle = ifDirtNear;
-  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  // Near dirt — perspective projection of the home-plate dirt circle (baseR ≈ 40 px in
+  // top-down, matching Field.tsx) clipped to fair territory between the foul lines.
+  {
+    const foulDepth = 400;
+    const pvFoulR = projectToPOV(PLATE.x + foulDepth, PLATE.y - foulDepth);
+    const pvFoulL = projectToPOV(PLATE.x - foulDepth, PLATE.y - foulDepth);
+    const DIRT_R  = 15 * (340 / 127.279);  // 15-ft radius ≈ 40 px — same as baseR in Field.tsx
+    const dirtTopY = PROJ_Y0 - PROJ_C * DIRT_R / (DIRT_R + PROJ_D); // projected arc apex ≈ 357
+
+    // Clip region: fair-territory cone (home-plate corners → foul far ends) plus full screen bottom
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 110, PROJ_Y0);   // left home-plate corner
+    ctx.lineTo(pvFoulL.x, pvFoulL.y);
+    ctx.lineTo(pvFoulR.x, pvFoulR.y);
+    ctx.lineTo(W / 2 + 110, PROJ_Y0);   // right home-plate corner
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.clip();
+
+    // Draw the projected forward semicircle of the dirt circle as the top boundary
+    const dirtGrad = ctx.createLinearGradient(0, dirtTopY, 0, H);
+    dirtGrad.addColorStop(0, '#b87a3c');
+    dirtGrad.addColorStop(1, '#8d5a2a');
+    ctx.fillStyle = dirtGrad;
+    ctx.beginPath();
+    for (let i = 0; i <= 32; i++) {
+      const phi = (i / 32) * Math.PI;  // phi=0: left side; phi=π/2: apex; phi=π: right side
+      const p = projectToPOV(
+        PLATE.x - DIRT_R * Math.cos(phi),
+        PLATE.y - DIRT_R * Math.sin(phi),
+      );
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
   // Home plate (near bottom-center)
   ctx.fillStyle = '#fff';
