@@ -256,60 +256,60 @@ function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
 
   // Legs
   ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(x - 22, y + 35, 14, 55);
-  ctx.fillRect(x + 8,  y + 35, 14, 55);
+  ctx.fillRect(x - 31, y + 49, 20, 77);
+  ctx.fillRect(x + 11, y + 49, 20, 77);
 
   // Torso (back view, red jersey)
   ctx.fillStyle = '#c22';
   ctx.beginPath();
-  ctx.ellipse(x, y + 5, 27, 42, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y + 7, 38, 59, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 20px system-ui';
+  ctx.font = 'bold 28px system-ui';
   ctx.textAlign = 'center';
-  ctx.fillText('9', x, y + 14);
+  ctx.fillText('9', x, y + 20);
   ctx.textAlign = 'left';
 
   // Helmet (back of head)
   ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.arc(x, y - 36, 17, 0, Math.PI * 2);
+  ctx.arc(x, y - 50, 24, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#2a2a2a';
   ctx.beginPath();
-  ctx.arc(x - 15, y - 34, 5, 0, Math.PI * 2);
+  ctx.arc(x - 21, y - 48, 7, 0, Math.PI * 2);
   ctx.fill();
 
   // Hands grip point
-  const handX = x - 8;
-  const handY = y - 18;
+  const handX = x - 12;
+  const handY = y - 25;
 
-  // Bat
-  const batLen = 115;
+  // Bat — length 285 so barrel tip reaches the far edge of the strike zone at full swing
+  const batLen = 285;
   const batEndX = handX + Math.cos(batAngle) * batLen;
   const batEndY = handY + Math.sin(batAngle) * batLen;
 
   // Handle
   ctx.strokeStyle = '#4a2a10';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 7;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(handX, handY);
-  ctx.lineTo(handX + Math.cos(batAngle) * 30, handY + Math.sin(batAngle) * 30);
+  ctx.lineTo(handX + Math.cos(batAngle) * 45, handY + Math.sin(batAngle) * 45);
   ctx.stroke();
 
   // Barrel
   ctx.strokeStyle = '#a66a32';
-  ctx.lineWidth = 11;
+  ctx.lineWidth = 16;
   ctx.beginPath();
-  ctx.moveTo(handX + Math.cos(batAngle) * 28, handY + Math.sin(batAngle) * 28);
+  ctx.moveTo(handX + Math.cos(batAngle) * 43, handY + Math.sin(batAngle) * 43);
   ctx.lineTo(batEndX, batEndY);
   ctx.stroke();
 
   // Hand
   ctx.fillStyle = '#f4c891';
   ctx.beginPath();
-  ctx.arc(handX, handY, 6, 0, Math.PI * 2);
+  ctx.arc(handX, handY, 9, 0, Math.PI * 2);
   ctx.fill();
 }
 
