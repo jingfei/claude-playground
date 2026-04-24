@@ -78,13 +78,15 @@ export default function BatterView({ ref }: Props) {
 }
 
 function drawFieldLines(ctx: CanvasRenderingContext2D): void {
-  // First/third base depth = PLATE.y - 320 = 150; place them exactly ON the visual foul lines
-  // using bvFoulRX/bvFoulLX so their position is always consistent with the chalk lines.
+  // First/third base size and position: outer edge aligns with the visual foul line so the
+  // base is entirely within fair territory (mirrors the top-down view where the outer corner
+  // of each base sits on the foul line).
+  const BASE_1_3 = 38;
   const baseDepth = 150;
   const pvBaseY  = PROJ_Y0 - PROJ_C * baseDepth / (baseDepth + PROJ_D);  // ≈ 233
-  const pvFirst  = { x: bvFoulRX(pvBaseY), y: pvBaseY };
+  const pvFirst  = { x: bvFoulRX(pvBaseY) - BASE_1_3 / 2, y: pvBaseY };  // right edge on foul line
   const pvSecond = projectToPOV(PLATE.x, PLATE.y - 320);
-  const pvThird  = { x: bvFoulLX(pvBaseY), y: pvBaseY };
+  const pvThird  = { x: bvFoulLX(pvBaseY) + BASE_1_3 / 2, y: pvBaseY };  // left edge on foul line
 
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
@@ -131,9 +133,9 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
     ctx.lineWidth = 1;
     ctx.strokeRect(pv.x - size / 2, pv.y - size / 2, size, size);
   };
-  drawBase(pvFirst,  38);
+  drawBase(pvFirst,  BASE_1_3);
   drawBase(pvSecond, 24);
-  drawBase(pvThird,  38);
+  drawBase(pvThird,  BASE_1_3);
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
