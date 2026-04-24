@@ -8,11 +8,11 @@ interface Props {
   ref: React.Ref<DrawHandle>;
 }
 
-// Batter POV layout — pitcher in top-center (20% down), zone in bottom-center, batter beside.
-const POV_PITCHER = { x: W / 2, y: H * 0.22 };           // (400, ~123)
+// Batter POV layout — pitcher in top-center (~30% down), zone in bottom-center, batter beside.
+const POV_PITCHER = { x: W / 2, y: H * 0.30 };           // (400, ~168) — feet land on mound
 const POV_ZONE    = { x: 300, y: 340, w: 200, h: 180 };  // strike zone centered at x=400
 const POV_BATTER  = { x: 590, y: 430 };                  // right-handed, right of zone
-const POV_RELEASE = { x: W / 2, y: POV_PITCHER.y + 18 }; // (400, ~141) — above zone center
+const POV_RELEASE = { x: W / 2, y: POV_PITCHER.y + 18 }; // (400, ~186) — above zone center
 
 function mapBallEnd(end: { x: number; y: number }) {
   return {
@@ -51,38 +51,50 @@ export default function BatterView({ ref }: Props) {
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
-  // Sky / stadium
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.45);
-  sky.addColorStop(0, '#2a3d5a');
-  sky.addColorStop(1, '#6d8db4');
+  // Sky
+  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.26);
+  sky.addColorStop(0, '#1a2d48');
+  sky.addColorStop(1, '#5a7ea0');
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H * 0.45);
+  ctx.fillRect(0, 0, W, H * 0.26);
 
-  // Outfield wall stripe
-  ctx.fillStyle = '#2f6d26';
-  ctx.fillRect(0, H * 0.42, W, 14);
+  // Outfield wall stripe (at horizon)
+  ctx.fillStyle = '#1f5218';
+  ctx.fillRect(0, H * 0.24, W, 12);
 
-  // Outfield grass
-  const grass = ctx.createLinearGradient(0, H * 0.45, 0, H * 0.72);
-  grass.addColorStop(0, '#55a544');
-  grass.addColorStop(1, '#4a9a3a');
-  ctx.fillStyle = grass;
-  ctx.fillRect(0, H * 0.45, W, H * 0.27);
+  // Outfield grass (far, narrow band in perspective)
+  const ofGrass = ctx.createLinearGradient(0, H * 0.26, 0, H * 0.40);
+  ofGrass.addColorStop(0, '#55a544');
+  ofGrass.addColorStop(1, '#4a9a3a');
+  ctx.fillStyle = ofGrass;
+  ctx.fillRect(0, H * 0.26, W, H * 0.14);
 
-  // Infield dirt
-  const dirt = ctx.createLinearGradient(0, H * 0.72, 0, H);
-  dirt.addColorStop(0, '#b87a3c');
-  dirt.addColorStop(1, '#8d5a2a');
-  ctx.fillStyle = dirt;
-  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  // Infield dirt — strip between outfield grass and infield grass
+  ctx.fillStyle = '#b07838';
+  ctx.fillRect(0, H * 0.40, W, H * 0.03);
 
-  // Pitcher's mound
+  // Infield grass (BIG — pitcher stands here)
+  const ifGrass = ctx.createLinearGradient(0, H * 0.43, 0, H * 0.72);
+  ifGrass.addColorStop(0, '#4a9a3a');
+  ifGrass.addColorStop(1, '#55a544');
+  ctx.fillStyle = ifGrass;
+  ctx.fillRect(0, H * 0.43, W, H * 0.29);
+
+  // Pitcher's mound — at pitcher's feet, inside infield grass
+  const moundY = POV_PITCHER.y + 72;   // feet level ≈ 240, inside infield grass (y≈241+)
   ctx.fillStyle = '#a56d2f';
   ctx.beginPath();
-  ctx.ellipse(POV_PITCHER.x, POV_PITCHER.y + 44, 95, 16, 0, 0, Math.PI * 2);
+  ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Home plate (front of viewer, near bottom-center)
+  // Infield dirt (near camera — basepath / batter area)
+  const ifDirtNear = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  ifDirtNear.addColorStop(0, '#b87a3c');
+  ifDirtNear.addColorStop(1, '#8d5a2a');
+  ctx.fillStyle = ifDirtNear;
+  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+
+  // Home plate (near bottom-center)
   ctx.fillStyle = '#fff';
   const hpx = W / 2;
   const hpy = H - 18;
@@ -236,11 +248,11 @@ function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
   const { x, y } = POV_BATTER;
 
   // Right-handed batter, viewed from behind: bat starts up-right (back shoulder),
-  // swings across counter-clockwise through vertical-up and over to up-left.
+  // swings clockwise — barrel sweeps down and across through the zone to follow-through.
   const batAngle =
     g.swingT < 0
       ? -Math.PI / 3
-      : lerp(-Math.PI / 3, -Math.PI + 0.35, g.swingT);
+      : lerp(-Math.PI / 3, Math.PI * 0.95, g.swingT);
 
   // Legs
   ctx.fillStyle = '#1a1a1a';
