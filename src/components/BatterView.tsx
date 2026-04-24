@@ -14,6 +14,22 @@ const POV_ZONE    = { x: 300, y: 340, w: 200, h: 180 };  // strike zone centered
 const POV_BATTER  = { x: 590, y: 430 };                  // right-handed, right of zone
 const POV_RELEASE = { x: W / 2, y: POV_PITCHER.y + 18 }; // (400, ~186) — above zone center
 
+// Perspective projection: maps top-down (tx, ty) to batter-view screen coords.
+// Calibrated so depth=142 (pitcher mound) → pvY=240 and depth→∞ → pvY≈H*0.24 (outfield wall).
+const PROJ_D  = 48;                          // depth constant (controls perspective curve)
+const PROJ_S  = 7.0;                         // horizontal spread scale
+const PROJ_Y0 = H - 18;                      // home plate screen Y  (542)
+const PROJ_C  = PROJ_Y0 - H * 0.24;          // Y range to outfield horizon (≈408)
+
+function projectToPOV(tx: number, ty: number): { x: number; y: number } {
+  const depth   = PLATE.y - ty;
+  const lateral = tx - PLATE.x;
+  return {
+    x: W / 2 + (lateral * PROJ_D * PROJ_S) / (depth + PROJ_D),
+    y: PROJ_Y0 - (PROJ_C * depth) / (depth + PROJ_D),
+  };
+}
+
 function mapBallEnd(end: { x: number; y: number }) {
   return {
     x: POV_ZONE.x + ((end.x - ZONE.x) / ZONE.w) * POV_ZONE.w,
@@ -32,6 +48,7 @@ export default function BatterView({ ref }: Props) {
       if (!ctx) return;
       ctx.clearRect(0, 0, W, H);
       drawBackground(ctx);
+      drawFieldLines(ctx);
       drawPitcher(ctx, g);
       drawStrikeZone(ctx);
       drawPitchBall(ctx, g);
@@ -48,6 +65,59 @@ export default function BatterView({ ref }: Props) {
       className="absolute inset-0 pointer-events-none"
     />
   );
+}
+
+function drawFieldLines(ctx: CanvasRenderingContext2D): void {
+  // Base positions in top-down coords (matching Field.tsx definitions)
+  const pvFirst  = projectToPOV(PLATE.x + 140, PLATE.y - 150);  // (540, 320)
+  const pvSecond = projectToPOV(PLATE.x,       PLATE.y - 320);  // (400, 150)
+  const pvThird  = projectToPOV(PLATE.x - 140, PLATE.y - 150);  // (260, 320)
+
+  // Far ends of foul lines — depth 400 along the 45° diagonals into the outfield
+  const pvFoulR = projectToPOV(PLATE.x + 400, PLATE.y - 400);
+  const pvFoulL = projectToPOV(PLATE.x - 400, PLATE.y - 400);
+
+  const hpx = W / 2;
+  const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
+
+  // Foul lines (white chalk)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.80)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(hpx + 110, hpy);
+  ctx.lineTo(pvFoulR.x, pvFoulR.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hpx - 110, hpy);
+  ctx.lineTo(pvFoulL.x, pvFoulL.y);
+  ctx.stroke();
+
+  // Basepaths first↔second and third↔second (dashed white)
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(pvFirst.x,  pvFirst.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pvThird.x,  pvThird.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Base squares (white, perspective-scaled)
+  const drawBase = (pv: { x: number; y: number }, size: number) => {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(pv.x - size / 2, pv.y - size / 2, size, size);
+    ctx.strokeStyle = 'rgba(180, 180, 180, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pv.x - size / 2, pv.y - size / 2, size, size);
+  };
+  drawBase(pvFirst,  12);
+  drawBase(pvSecond,  9);
+  drawBase(pvThird,  12);
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
