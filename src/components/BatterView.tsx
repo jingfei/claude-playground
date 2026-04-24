@@ -89,7 +89,7 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
 
-  // Basepath dirt strips (home → first, home → third), drawn before chalk so lines sit on top
+  // Basepath dirt strips — all four diamond sides, drawn before chalk so lines sit on top
   ctx.strokeStyle = '#a56d2f';
   ctx.lineWidth = 14;
   ctx.lineCap = 'round';
@@ -101,6 +101,14 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   ctx.beginPath();
   ctx.moveTo(hpx - 110, hpy);
   ctx.lineTo(pvThird.x, pvThird.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pvFirst.x, pvFirst.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pvThird.x, pvThird.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
   ctx.stroke();
 
   // Foul lines (white chalk) on top of the dirt strips
@@ -115,21 +123,7 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(pvFoulL.x, pvFoulL.y);
   ctx.stroke();
 
-  // Basepaths first↔second and third↔second (dashed white)
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.40)';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath();
-  ctx.moveTo(pvFirst.x,  pvFirst.y);
-  ctx.lineTo(pvSecond.x, pvSecond.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(pvThird.x,  pvThird.y);
-  ctx.lineTo(pvSecond.x, pvSecond.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Base squares (white, perspective-scaled)
+  // Base squares (white, perspective-scaled to match home plate proportions)
   const drawBase = (pv: { x: number; y: number }, size: number) => {
     ctx.fillStyle = '#fff';
     ctx.fillRect(pv.x - size / 2, pv.y - size / 2, size, size);
@@ -137,9 +131,9 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
     ctx.lineWidth = 1;
     ctx.strokeRect(pv.x - size / 2, pv.y - size / 2, size, size);
   };
-  drawBase(pvFirst,  12);
-  drawBase(pvSecond,  9);
-  drawBase(pvThird,  12);
+  drawBase(pvFirst,  38);
+  drawBase(pvSecond, 24);
+  drawBase(pvThird,  38);
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
@@ -191,7 +185,7 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   // Near dirt — small strip just above home plate, clipped to fair-territory cone + screen bottom.
   // Starts at dirtTopY (≈490, well below the strike zone at y=340), fades toward home plate.
   {
-    const dirtTopY = PROJ_Y0 - 52;  // ≈ 490
+    const dirtTopY = POV_ZONE.y + POV_ZONE.h;  // bottom of strike zone (520), stays below zone
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(W / 2 - 110, PROJ_Y0);
