@@ -91,19 +91,20 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
 
-  // Basepath dirt strips — home→first and home→third, endpoint on the foul line so the
-  // strip centerline aligns with the chalk. butt cap avoids bleeding past the base.
+  // Basepath dirt strips — first→second and second→third; home→first/third omitted because
+  // they run from home plate through the pitcher's visual depth toward first/third and look
+  // like pitcher→first/third in batter POV.
   ctx.strokeStyle = '#a56d2f';
   ctx.lineWidth = 14;
-  ctx.lineCap = 'butt';
+  ctx.lineCap = 'round';
   ctx.setLineDash([]);
   ctx.beginPath();
-  ctx.moveTo(hpx + 110, hpy);
-  ctx.lineTo(bvFoulRX(pvBaseY), pvBaseY);
+  ctx.moveTo(pvFirst.x, pvFirst.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(hpx - 110, hpy);
-  ctx.lineTo(bvFoulLX(pvBaseY), pvBaseY);
+  ctx.moveTo(pvThird.x, pvThird.y);
+  ctx.lineTo(pvSecond.x, pvSecond.y);
   ctx.stroke();
 
   // Foul lines (white chalk) on top of the dirt strips
@@ -150,7 +151,15 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = ofGrass;
   ctx.fillRect(0, H * 0.26, W, H * 0.14);
 
-  // Infield dirt — strip between outfield grass and infield grass, clipped to fair territory
+  // Infield grass — full width from H*0.40 so foul territory at the dirt-strip level is green
+  // rather than bare black canvas. The fair-territory dirt trapezoid is drawn on top of this.
+  const ifGrass = ctx.createLinearGradient(0, H * 0.40, 0, H * 0.72);
+  ifGrass.addColorStop(0, '#4a9a3a');
+  ifGrass.addColorStop(1, '#55a544');
+  ctx.fillStyle = ifGrass;
+  ctx.fillRect(0, H * 0.40, W, H * 0.60);
+
+  // Infield dirt — clipped to fair territory, drawn on top of grass so foul territory stays green
   {
     const topY = H * 0.40, botY = H * 0.43;
     ctx.fillStyle = '#b07838';
@@ -162,13 +171,6 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
     ctx.closePath();
     ctx.fill();
   }
-
-  // Infield grass — extends to screen bottom; foul-territory corners at the near end show grass
-  const ifGrass = ctx.createLinearGradient(0, H * 0.43, 0, H * 0.72);
-  ifGrass.addColorStop(0, '#4a9a3a');
-  ifGrass.addColorStop(1, '#55a544');
-  ctx.fillStyle = ifGrass;
-  ctx.fillRect(0, H * 0.43, W, H * 0.57);  // full remainder of screen
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
