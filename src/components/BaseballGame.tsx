@@ -3,18 +3,23 @@ import Field from './Field.tsx';
 import Pitcher from './Pitcher.tsx';
 import Batter from './Batter.tsx';
 import Ball from './Ball.tsx';
+import BatterView from './BatterView.tsx';
 import Scoreboard from './Scoreboard.tsx';
 import ResultBanner from './ResultBanner.tsx';
 import { W, H } from '../game/constants.ts';
 import { createGameState, startPitch, swing, resolve } from '../game/state.ts';
 import type { DrawHandle, GamePhase } from '../types.ts';
 
+type View = 'topdown' | 'batter';
+
 export default function BaseballGame() {
   const gameRef = useRef(createGameState());
   const pitcherRef = useRef<DrawHandle>(null);
   const batterRef = useRef<DrawHandle>(null);
   const ballRef = useRef<DrawHandle>(null);
+  const batterViewRef = useRef<DrawHandle>(null);
 
+  const [view, setView] = useState<View>('topdown');
   const [balls, setBalls] = useState(0);
   const [strikes, setStrikes] = useState(0);
   const [phase, setPhase] = useState<GamePhase>('ready');
@@ -46,6 +51,7 @@ export default function BaseballGame() {
       pitcherRef.current?.draw(g);
       batterRef.current?.draw(g);
       ballRef.current?.draw(g);
+      batterViewRef.current?.draw(g);
 
       rafId = requestAnimationFrame(tick);
     };
@@ -88,18 +94,35 @@ export default function BaseballGame() {
     }
   };
 
+  const toggleView = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setView((v) => (v === 'topdown' ? 'batter' : 'topdown'));
+  };
+
   return (
     <div
       onClick={onClick}
       className="relative rounded-lg overflow-hidden border-2 border-neutral-700 shadow-2xl shadow-black/50 cursor-pointer"
       style={{ width: W, height: H }}
     >
-      <Field />
-      <Ball ref={ballRef} />
-      <Pitcher ref={pitcherRef} />
-      <Batter ref={batterRef} />
+      {view === 'topdown' ? (
+        <>
+          <Field />
+          <Ball ref={ballRef} />
+          <Pitcher ref={pitcherRef} />
+          <Batter ref={batterRef} />
+        </>
+      ) : (
+        <BatterView ref={batterViewRef} />
+      )}
       <Scoreboard balls={balls} strikes={strikes} />
       <ResultBanner text={resultText} alpha={resultAlpha} />
+      <button
+        onClick={toggleView}
+        className="absolute top-3 right-3 px-3 py-1.5 rounded-md bg-black/70 text-xs text-neutral-100 border border-neutral-600 hover:bg-black/85 cursor-pointer z-10"
+      >
+        {view === 'topdown' ? 'Batter POV' : 'Top-down'}
+      </button>
       {phase === 'ready' && (
         <div className="absolute inset-x-0 bottom-4 flex items-center justify-center pointer-events-none">
           <div className="px-4 py-2 rounded-full bg-black/70 text-sm text-neutral-200 border border-neutral-700">
