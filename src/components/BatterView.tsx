@@ -91,26 +91,19 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   const hpx = W / 2;
   const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
 
-  // Basepath dirt strips — all four diamond sides, drawn before chalk so lines sit on top
+  // Basepath dirt strips — home→first and home→third, endpoint on the foul line so the
+  // strip centerline aligns with the chalk. butt cap avoids bleeding past the base.
   ctx.strokeStyle = '#a56d2f';
   ctx.lineWidth = 14;
-  ctx.lineCap = 'round';
+  ctx.lineCap = 'butt';
   ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(hpx + 110, hpy);
-  ctx.lineTo(pvFirst.x, pvFirst.y);
+  ctx.lineTo(bvFoulRX(pvBaseY), pvBaseY);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(hpx - 110, hpy);
-  ctx.lineTo(pvThird.x, pvThird.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(pvFirst.x, pvFirst.y);
-  ctx.lineTo(pvSecond.x, pvSecond.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(pvThird.x, pvThird.y);
-  ctx.lineTo(pvSecond.x, pvSecond.y);
+  ctx.lineTo(bvFoulLX(pvBaseY), pvBaseY);
   ctx.stroke();
 
   // Foul lines (white chalk) on top of the dirt strips
