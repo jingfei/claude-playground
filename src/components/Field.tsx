@@ -38,11 +38,18 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   const br     = 21 * Math.SQRT2; // ≈  30px  half-diagonal of 18″ rotated base
 
   // ── Outfield grass ─────────────────────────────────────────────────────
+  // Dark green = foul territory (full canvas background)
   ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, 0, W, H);
+  // Light green = all fair territory (polygon between foul lines)
   ctx.fillStyle = '#55a544';
   ctx.beginPath();
-  ctx.ellipse(PLATE.x, PLATE.y, 520, 430, 0, Math.PI, 0);
+  ctx.moveTo(VERTEX.x, VERTEX.y);
+  ctx.lineTo(W, VERTEX.y - (W - VERTEX.x));   // right foul line → canvas edge (800, 90)
+  ctx.lineTo(W, 0);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(0, VERTEX.y - VERTEX.x);         // left foul line → canvas edge (0, 90)
+  ctx.closePath();
   ctx.fill();
 
   // ── Infield dirt — bounded by foul lines and 95-ft arc ─────────────────
