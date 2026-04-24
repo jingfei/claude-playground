@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, ZONE } from '../game/constants.ts';
+import { W, H, ZONE, PLATE } from '../game/constants.ts';
 import { lerp } from '../game/state.ts';
 import { drawBall } from '../game/draw.ts';
 import type { DrawHandle, GameState } from '../types.ts';
@@ -316,21 +316,31 @@ function drawBatter(ctx: CanvasRenderingContext2D, g: GameState): void {
 function drawHitBall(ctx: CanvasRenderingContext2D, g: GameState): void {
   if (!g.hit) return;
   const t = Math.min(1, g.hit.t);
-  // Ball flies from bat contact toward and past the pitcher, shrinking with distance.
-  const startX = POV_BATTER.x - 40;
-  const startY = POV_BATTER.y - 20;
-  const endX = POV_PITCHER.x + (startX - POV_PITCHER.x) * 0.25;
-  const endY = POV_PITCHER.y - 80;
+
+  // Derive direction from top-down hit position relative to home plate.
+  // cos(hitAngle): positive = right field, negative = left field.
+  // All hits have negative sin (forward toward pitcher), so ball always rises on screen.
+  const hitAngle = Math.atan2(g.hit.y - PLATE.y, g.hit.x - PLATE.x);
+
+  // Ball starts near bat barrel contact point (left of batter, mid-zone height)
+  const startX = POV_BATTER.x - 50;
+  const startY = POV_BATTER.y - 30;
+
+  // Horizontal spread: cos maps left-field→left-screen, right-field→right-screen, fouls→far sides
+  const endX = W / 2 + Math.cos(hitAngle) * W * 0.55;
+  const endY = POV_PITCHER.y - 60;
+
   const x = lerp(startX, endX, t);
   const y = lerp(startY, endY, t);
-  const r = lerp(12, 2, t);
+  const r = lerp(14, 2, t);
   if (r > 1) drawBall(ctx, x, y, r);
 
   if (t >= 1) {
     ctx.fillStyle = '#ff0';
     ctx.font = 'bold 22px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(g.hit.type, W / 2, POV_PITCHER.y - 60);
+    // Clamp label to stay on screen for extreme foul balls
+    ctx.fillText(g.hit.type, Math.max(60, Math.min(W - 60, endX)), endY - 20);
     ctx.textAlign = 'left';
   }
 }
