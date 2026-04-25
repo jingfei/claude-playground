@@ -78,45 +78,80 @@ export default function BatterView({ ref }: Props) {
 }
 
 function drawFieldLines(ctx: CanvasRenderingContext2D): void {
-  // First/third base size and position: outer edge aligns with the visual foul line so the
-  // base is entirely within fair territory (mirrors the top-down view where the outer corner
-  // of each base sits on the foul line).
-  const BASE_1_3 = 38;
-  const baseDepth = 150;
-  const pvBaseY  = PROJ_Y0 - PROJ_C * baseDepth / (baseDepth + PROJ_D);  // ≈ 233
-  const pvFirst  = { x: bvFoulRX(pvBaseY) - BASE_1_3 / 2, y: pvBaseY };  // right edge on foul line
+  // Each base is a square rotated 45° (diamond orientation) projected into batter-view.
+  // SZ = top-down side length; r = half-diagonal used to place the four corners.
+  const SZ = 20;
+  const r  = SZ / Math.SQRT2;
+
   const pvSecond = projectToPOV(PLATE.x, PLATE.y - 320);
-  const pvThird  = { x: bvFoulLX(pvBaseY) + BASE_1_3 / 2, y: pvBaseY };  // left edge on foul line
-
   const hpx = W / 2;
-  const hpy = PROJ_Y0;  // H - 18 = 542 — home-plate level
+  const hpy = PROJ_Y0;
 
-  // Basepath dirt strips — all four diamond sides.
-  // home→first/third: butt cap so the strip ends flush at the foul line.
-  // first→second/third: round cap for natural termination at second base.
+  // First base: foul corner anchored at (PLATE.x+150, PLATE.y-150) on the right foul line.
+  // The four corners of the rotated square in top-down → projected to batter-view.
+  const r1raw = {
+    top:  projectToPOV(PLATE.x + 150 - r, PLATE.y - 150 - r),
+    foul: projectToPOV(PLATE.x + 150,     PLATE.y - 150),
+    bot:  projectToPOV(PLATE.x + 150 - r, PLATE.y - 150 + r),
+    fair: projectToPOV(PLATE.x + 150 - 2 * r, PLATE.y - 150),
+  };
+  // Snap foul corner onto the visual foul line (the two don't align because the visual
+  // foul line starts at the home-plate corner, not through the perspective formula).
+  const dx1 = bvFoulRX(r1raw.foul.y) - r1raw.foul.x;
+  const f1 = {
+    top:  { x: r1raw.top.x  + dx1, y: r1raw.top.y  },
+    foul: { x: r1raw.foul.x + dx1, y: r1raw.foul.y },
+    bot:  { x: r1raw.bot.x  + dx1, y: r1raw.bot.y  },
+    fair: { x: r1raw.fair.x + dx1, y: r1raw.fair.y },
+  };
+
+  // Third base: mirror of first along the centre axis.
+  const r3raw = {
+    top:  projectToPOV(PLATE.x - 150 + r, PLATE.y - 150 - r),
+    foul: projectToPOV(PLATE.x - 150,     PLATE.y - 150),
+    bot:  projectToPOV(PLATE.x - 150 + r, PLATE.y - 150 + r),
+    fair: projectToPOV(PLATE.x - 150 + 2 * r, PLATE.y - 150),
+  };
+  const dx3 = bvFoulLX(r3raw.foul.y) - r3raw.foul.x;
+  const f3 = {
+    top:  { x: r3raw.top.x  + dx3, y: r3raw.top.y  },
+    foul: { x: r3raw.foul.x + dx3, y: r3raw.foul.y },
+    bot:  { x: r3raw.bot.x  + dx3, y: r3raw.bot.y  },
+    fair: { x: r3raw.fair.x + dx3, y: r3raw.fair.y },
+  };
+
+  // Second base: diamond centred on the midline at depth 320.
+  const f2 = {
+    top:   projectToPOV(PLATE.x,     PLATE.y - 320 - r),
+    right: projectToPOV(PLATE.x + r, PLATE.y - 320),
+    bot:   projectToPOV(PLATE.x,     PLATE.y - 320 + r),
+    left:  projectToPOV(PLATE.x - r, PLATE.y - 320),
+  };
+
+  // Basepath dirt strips
   ctx.strokeStyle = '#a56d2f';
   ctx.lineWidth = 14;
   ctx.setLineDash([]);
   ctx.lineCap = 'butt';
   ctx.beginPath();
   ctx.moveTo(hpx + 110, hpy);
-  ctx.lineTo(bvFoulRX(pvBaseY), pvBaseY);
+  ctx.lineTo(f1.foul.x, f1.foul.y);
   ctx.stroke();
   ctx.beginPath();
   ctx.moveTo(hpx - 110, hpy);
-  ctx.lineTo(bvFoulLX(pvBaseY), pvBaseY);
+  ctx.lineTo(f3.foul.x, f3.foul.y);
   ctx.stroke();
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(pvFirst.x, pvFirst.y);
+  ctx.moveTo(f1.top.x, f1.top.y);
   ctx.lineTo(pvSecond.x, pvSecond.y);
   ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(pvThird.x, pvThird.y);
+  ctx.moveTo(f3.top.x, f3.top.y);
   ctx.lineTo(pvSecond.x, pvSecond.y);
   ctx.stroke();
 
-  // Foul lines (white chalk) on top of the dirt strips
+  // Chalk foul lines
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.80)';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -128,53 +163,40 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(pvFoulL.x, pvFoulL.y);
   ctx.stroke();
 
-  // Base shapes — first/third are pentagons: the outer edge follows the foul line so
-  // the base stays entirely in fair territory at every y within the base height.
-  // (A screen-aligned square would bleed into foul territory at the bottom corner
-  // because the foul line angles inward as it approaches home plate.)
-  const half = BASE_1_3 / 2;
   const baseBorder = 'rgba(180, 180, 180, 0.8)';
 
-  // First base: right edge vertical from top to center, then follows right foul line to bottom
-  {
-    const t = pvFirst.y - half, b = pvFirst.y + half;
-    const l = pvFirst.x - half, r = pvFirst.x + half;  // r == bvFoulRX(pvFirst.y) by construction
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(l, t);
-    ctx.lineTo(r, t);
-    ctx.lineTo(r, pvFirst.y);        // vertical down to center (on foul line)
-    ctx.lineTo(bvFoulRX(b), b);      // follow foul line to base bottom
-    ctx.lineTo(l, b);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
-  }
+  // First base (perspective diamond)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(f1.top.x,  f1.top.y);
+  ctx.lineTo(f1.foul.x, f1.foul.y);
+  ctx.lineTo(f1.bot.x,  f1.bot.y);
+  ctx.lineTo(f1.fair.x, f1.fair.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
 
-  // Second base: plain square (centered, no foul-line clipping needed)
-  {
-    const s = 24;
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(pvSecond.x - s / 2, pvSecond.y - s / 2, s, s);
-    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1;
-    ctx.strokeRect(pvSecond.x - s / 2, pvSecond.y - s / 2, s, s);
-  }
+  // Second base (perspective diamond)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(f2.top.x,   f2.top.y);
+  ctx.lineTo(f2.right.x, f2.right.y);
+  ctx.lineTo(f2.bot.x,   f2.bot.y);
+  ctx.lineTo(f2.left.x,  f2.left.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
 
-  // Third base: left edge vertical from top to center, then follows left foul line to bottom
-  {
-    const t = pvThird.y - half, b = pvThird.y + half;
-    const r = pvThird.x + half, l = pvThird.x - half;  // l == bvFoulLX(pvThird.y) by construction
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.moveTo(r, t);
-    ctx.lineTo(l, t);
-    ctx.lineTo(l, pvThird.y);        // vertical down to center (on foul line)
-    ctx.lineTo(bvFoulLX(b), b);      // follow foul line to base bottom
-    ctx.lineTo(r, b);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
-  }
+  // Third base (perspective diamond)
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(f3.top.x,  f3.top.y);
+  ctx.lineTo(f3.foul.x, f3.foul.y);
+  ctx.lineTo(f3.bot.x,  f3.bot.y);
+  ctx.lineTo(f3.fair.x, f3.fair.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = baseBorder; ctx.lineWidth = 1; ctx.stroke();
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D): void {
@@ -196,12 +218,8 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = ofGrass;
   ctx.fillRect(0, H * 0.26, W, H * 0.14);
 
-  // Infield grass — full width from H*0.40 so foul territory at the dirt-strip level is green
-  // rather than bare black canvas. The fair-territory dirt trapezoid is drawn on top of this.
-  const ifGrass = ctx.createLinearGradient(0, H * 0.40, 0, H * 0.72);
-  ifGrass.addColorStop(0, '#4a9a3a');
-  ifGrass.addColorStop(1, '#55a544');
-  ctx.fillStyle = ifGrass;
+  // Infield grass — solid dark green matching the outfield bottom, no light patch near home.
+  ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, H * 0.40, W, H * 0.60);
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
