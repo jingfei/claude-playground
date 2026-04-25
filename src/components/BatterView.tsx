@@ -207,10 +207,6 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H * 0.26);
 
-  // Outfield wall stripe (at horizon)
-  ctx.fillStyle = '#1f5218';
-  ctx.fillRect(0, H * 0.24, W, 12);
-
   // Project the 95-ft infield arc (same geometry as top-down Field.tsx) into batter-view.
   // Arc is centred on the pitcher's mound; its endpoints land on the two foul lines.
   const TD_SCALE = 340 / 127.279;          // top-down px per real foot (same as Field.tsx)
@@ -244,25 +240,20 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   // A clip to the visual fair-territory cone (foul lines) prevents bleeding into foul territory.
   {
     ctx.save();
+    // Clip converges at the home-plate vertex so the dirt matches the V-shape of the field.
     ctx.beginPath();
-    ctx.moveTo(W / 2 + 110, PROJ_Y0);
+    ctx.moveTo(W / 2, H);                // home-plate back vertex
+    ctx.lineTo(W / 2 + 110, PROJ_Y0);   // home-plate right corner
     ctx.lineTo(pvFoulR.x, pvFoulR.y);
     ctx.lineTo(pvFoulR.x + 100, 0);
     ctx.lineTo(pvFoulL.x - 100, 0);
     ctx.lineTo(pvFoulL.x, pvFoulL.y);
-    ctx.lineTo(W / 2 - 110, PROJ_Y0);
-    ctx.lineTo(W, H);
-    ctx.lineTo(0, H);
+    ctx.lineTo(W / 2 - 110, PROJ_Y0);   // home-plate left corner
     ctx.closePath();
     ctx.clip();
-    // Gradient gets lighter toward the arc (farther depth) and darker toward home plate.
-    const inDirt = ctx.createLinearGradient(0, arcBV[ARC_N >> 1].y, 0, PROJ_Y0);
-    inDirt.addColorStop(0, '#c8a060');
-    inDirt.addColorStop(1, '#b87a3c');
-    ctx.fillStyle = inDirt;
+    ctx.fillStyle = '#a56d2f';           // matches pitcher mound and basepath strips
     ctx.beginPath();
-    ctx.moveTo(0, H);
-    ctx.lineTo(W, H);
+    ctx.moveTo(W / 2, H);               // home-plate vertex
     ctx.lineTo(arcBV[0].x, arcBV[0].y);
     for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
     ctx.closePath();
