@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, ZONE, PLATE } from '../game/constants.ts';
+import { W, H, ZONE, PLATE, PITCHER } from '../game/constants.ts';
 import { lerp } from '../game/state.ts';
 import { drawBall } from '../game/draw.ts';
 import type { DrawHandle, GameState } from '../types.ts';
@@ -211,16 +211,47 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = '#1f5218';
   ctx.fillRect(0, H * 0.24, W, 12);
 
-  // Outfield grass (far, narrow band in perspective)
+  // Project the 95-ft infield arc (same geometry as top-down Field.tsx) into batter-view.
+  // Arc is centred on the pitcher's mound; its endpoints land on the two foul lines.
+  const TD_SCALE = 340 / 127.279;          // top-down px per real foot (same as Field.tsx)
+  const arcR     = 95 * TD_SCALE;           // 95-ft arc radius in top-down px (~254)
+  const foulSum  = PLATE.x + PLATE.y + 20; // VERTEX.x + VERTEX.y  (VERTEX = PLATE offset by 20)
+  const fmpy     = foulSum - PITCHER.x - PITCHER.y;
+  const chord    = Math.sqrt(2 * arcR * arcR - fmpy * fmpy);
+  const uR       = (fmpy + chord) / 2;
+  const arcRX    = PITCHER.x + uR;
+  const arcRY    = foulSum - arcRX;
+  const arcLX    = 2 * PITCHER.x - arcRX;
+  const angR     = Math.atan2(arcRY - PITCHER.y, arcRX - PITCHER.x);
+  const angL     = Math.atan2(arcRY - PITCHER.y, arcLX - PITCHER.x);
+
+  // Sample arc from right foul-line end → top (above 2nd base) → left foul-line end.
+  const ARC_N = 32;
+  const arcBV: { x: number; y: number }[] = [];
+  for (let i = 0; i <= ARC_N; i++) {
+    const theta = angR + (i / ARC_N) * (angL - angR);
+    arcBV.push(projectToPOV(
+      PITCHER.x + arcR * Math.cos(theta),
+      PITCHER.y + arcR * Math.sin(theta),
+    ));
+  }
+
+  // Infield grass — solid dark fill for the entire band below the sky.
+  ctx.fillStyle = '#4a9a3a';
+  ctx.fillRect(0, H * 0.26, W, H * 0.74);
+
+  // Outfield grass — lighter band clipped below by the projected infield arc.
   const ofGrass = ctx.createLinearGradient(0, H * 0.26, 0, H * 0.40);
   ofGrass.addColorStop(0, '#55a544');
   ofGrass.addColorStop(1, '#4a9a3a');
   ctx.fillStyle = ofGrass;
-  ctx.fillRect(0, H * 0.26, W, H * 0.14);
-
-  // Infield grass — solid dark green matching the outfield bottom, no light patch near home.
-  ctx.fillStyle = '#4a9a3a';
-  ctx.fillRect(0, H * 0.40, W, H * 0.60);
+  ctx.beginPath();
+  ctx.moveTo(-60, H * 0.26);
+  ctx.lineTo(W + 60, H * 0.26);
+  ctx.lineTo(arcBV[0].x, arcBV[0].y);
+  for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
+  ctx.closePath();
+  ctx.fill();
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
