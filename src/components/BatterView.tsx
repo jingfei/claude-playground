@@ -253,6 +253,56 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.closePath();
   ctx.fill();
 
+  // Infield dirt — fills fair territory from home-plate level up to the infield arc.
+  // A clip to the visual fair-territory cone (foul lines) prevents bleeding into foul territory.
+  {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + 110, PROJ_Y0);
+    ctx.lineTo(pvFoulR.x, pvFoulR.y);
+    ctx.lineTo(pvFoulR.x + 100, 0);
+    ctx.lineTo(pvFoulL.x - 100, 0);
+    ctx.lineTo(pvFoulL.x, pvFoulL.y);
+    ctx.lineTo(W / 2 - 110, PROJ_Y0);
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.clip();
+    // Gradient gets lighter toward the arc (farther depth) and darker toward home plate.
+    const inDirt = ctx.createLinearGradient(0, arcBV[ARC_N >> 1].y, 0, PROJ_Y0);
+    inDirt.addColorStop(0, '#c8a060');
+    inDirt.addColorStop(1, '#b87a3c');
+    ctx.fillStyle = inDirt;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(W, H);
+    ctx.lineTo(arcBV[0].x, arcBV[0].y);
+    for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Inner grass diamond — mirrors the top-down centre-grass square (between the base centres).
+  // Corners are computed using the same geometry as Field.tsx and projected into batter-view.
+  {
+    const td1x = PLATE.x + 140, td1y = PLATE.y - 150;  // first/third base centre (top-down)
+    const hcY  = td1x + td1y - PLATE.x;                 // home corner y = 460
+    const scY  = td1y - (td1x - PLATE.x);               // far corner y  = 180
+    const pH = projectToPOV(PLATE.x,       hcY);
+    const pF = projectToPOV(td1x,          td1y);
+    const pS = projectToPOV(PLATE.x,       scY);
+    const pT = projectToPOV(PLATE.x - 140, td1y);
+    ctx.fillStyle = '#4a9a3a';
+    ctx.beginPath();
+    ctx.moveTo(pH.x, pH.y);
+    ctx.lineTo(pF.x, pF.y);
+    ctx.lineTo(pS.x, pS.y);
+    ctx.lineTo(pT.x, pT.y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
   ctx.fillStyle = '#a56d2f';
