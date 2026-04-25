@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, ZONE, PLATE, PITCHER } from '../game/constants.ts';
+import { W, H, ZONE, PLATE } from '../game/constants.ts';
 import { lerp } from '../game/state.ts';
 import { drawBall } from '../game/draw.ts';
 import type { DrawHandle, GameState } from '../types.ts';
@@ -129,18 +129,40 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   };
 
   // Basepath dirt strips
-  ctx.strokeStyle = '#a56d2f';
+  // Home→first and home→third: filled polygon strips of width SZ/2 following the foul line.
+  // Fair-side edge is offset perpendicular to the foul line by ofs (inward toward fair territory).
+  const ofs = SZ / 2 / Math.SQRT2;  // perpendicular inset = half-base-width / √2
+
+  const f1sfRaw = projectToPOV(PLATE.x + 150 - ofs, PLATE.y - 150 - ofs);
+  const f1sf    = { x: f1sfRaw.x + dx1, y: f1sfRaw.y };
+  const f3sfRaw = projectToPOV(PLATE.x - 150 + ofs, PLATE.y - 150 - ofs);
+  const f3sf    = { x: f3sfRaw.x + dx3, y: f3sfRaw.y };
+
+  const nfR  = { x: hpx + 110, y: hpy };
+  const nfL  = { x: hpx - 110, y: hpy };
+  const nffR = { x: nfR.x + (f1sf.x - f1.foul.x), y: nfR.y + (f1sf.y - f1.foul.y) };
+  const nffL = { x: nfL.x + (f3sf.x - f3.foul.x), y: nfL.y + (f3sf.y - f3.foul.y) };
+
+  ctx.fillStyle = '#c68a4a';
+  ctx.beginPath();
+  ctx.moveTo(nfR.x, nfR.y);
+  ctx.lineTo(f1.foul.x, f1.foul.y);
+  ctx.lineTo(f1sf.x, f1sf.y);
+  ctx.lineTo(nffR.x, nffR.y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(nfL.x, nfL.y);
+  ctx.lineTo(f3.foul.x, f3.foul.y);
+  ctx.lineTo(f3sf.x, f3sf.y);
+  ctx.lineTo(nffL.x, nffL.y);
+  ctx.closePath();
+  ctx.fill();
+
+  // First→second and third→second basepath strips
+  ctx.strokeStyle = '#c68a4a';
   ctx.lineWidth = 14;
   ctx.setLineDash([]);
-  ctx.lineCap = 'butt';
-  ctx.beginPath();
-  ctx.moveTo(hpx + 110, hpy);
-  ctx.lineTo(f1.foul.x, f1.foul.y);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(hpx - 110, hpy);
-  ctx.lineTo(f3.foul.x, f3.foul.y);
-  ctx.stroke();
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(f1.top.x, f1.top.y);
@@ -207,83 +229,13 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H * 0.26);
 
-  // Project the 95-ft infield arc (same geometry as top-down Field.tsx) into batter-view.
-  // Arc is centred on the pitcher's mound; its endpoints land on the two foul lines.
-  const TD_SCALE = 340 / 127.279;          // top-down px per real foot (same as Field.tsx)
-  const arcR     = 95 * TD_SCALE;           // 95-ft arc radius in top-down px (~254)
-  const foulSum  = PLATE.x + PLATE.y + 20; // VERTEX.x + VERTEX.y  (VERTEX = PLATE offset by 20)
-  const fmpy     = foulSum - PITCHER.x - PITCHER.y;
-  const chord    = Math.sqrt(2 * arcR * arcR - fmpy * fmpy);
-  const uR       = (fmpy + chord) / 2;
-  const arcRX    = PITCHER.x + uR;
-  const arcRY    = foulSum - arcRX;
-  const arcLX    = 2 * PITCHER.x - arcRX;
-  const angR     = Math.atan2(arcRY - PITCHER.y, arcRX - PITCHER.x);
-  const angL     = Math.atan2(arcRY - PITCHER.y, arcLX - PITCHER.x);
-
-  // Sample arc from right foul-line end → top (above 2nd base) → left foul-line end.
-  const ARC_N = 32;
-  const arcBV: { x: number; y: number }[] = [];
-  for (let i = 0; i <= ARC_N; i++) {
-    const theta = angR + (i / ARC_N) * (angL - angR);
-    arcBV.push(projectToPOV(
-      PITCHER.x + arcR * Math.cos(theta),
-      PITCHER.y + arcR * Math.sin(theta),
-    ));
-  }
-
   // Infield grass — solid dark fill for the entire band below the sky.
   ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, H * 0.26, W, H * 0.74);
 
-  // Infield dirt — fills fair territory from home-plate level up to the infield arc.
-  // A clip to the visual fair-territory cone (foul lines) prevents bleeding into foul territory.
-  {
-    ctx.save();
-    // Clip converges at the home-plate vertex so the dirt matches the V-shape of the field.
-    ctx.beginPath();
-    ctx.moveTo(W / 2, H);                // home-plate back vertex
-    ctx.lineTo(W / 2 + 110, PROJ_Y0);   // home-plate right corner
-    ctx.lineTo(pvFoulR.x, pvFoulR.y);
-    ctx.lineTo(pvFoulR.x + 100, 0);
-    ctx.lineTo(pvFoulL.x - 100, 0);
-    ctx.lineTo(pvFoulL.x, pvFoulL.y);
-    ctx.lineTo(W / 2 - 110, PROJ_Y0);   // home-plate left corner
-    ctx.closePath();
-    ctx.clip();
-    ctx.fillStyle = '#a56d2f';           // matches pitcher mound and basepath strips
-    ctx.beginPath();
-    ctx.moveTo(W / 2, H);               // home-plate vertex
-    ctx.lineTo(arcBV[0].x, arcBV[0].y);
-    for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // Inner grass diamond — mirrors the top-down centre-grass square (between the base centres).
-  // Corners are computed using the same geometry as Field.tsx and projected into batter-view.
-  {
-    const td1x = PLATE.x + 140, td1y = PLATE.y - 150;  // first/third base centre (top-down)
-    const hcY  = td1x + td1y - PLATE.x;                 // home corner y = 460
-    const scY  = td1y - (td1x - PLATE.x);               // far corner y  = 180
-    const pH = projectToPOV(PLATE.x,       hcY);
-    const pF = projectToPOV(td1x,          td1y);
-    const pS = projectToPOV(PLATE.x,       scY);
-    const pT = projectToPOV(PLATE.x - 140, td1y);
-    ctx.fillStyle = '#4a9a3a';
-    ctx.beginPath();
-    ctx.moveTo(pH.x, pH.y);
-    ctx.lineTo(pF.x, pF.y);
-    ctx.lineTo(pS.x, pS.y);
-    ctx.lineTo(pT.x, pT.y);
-    ctx.closePath();
-    ctx.fill();
-  }
-
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
-  ctx.fillStyle = '#a56d2f';
+  ctx.fillStyle = '#c68a4a';
   ctx.beginPath();
   ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
