@@ -1,18 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { W, H, PITCHER, PLATE, ZONE } from '../game/constants.ts';
-
-// All distances from VERTEX=(400,490). Foul lines: x+y=890 (right), x−y=−90 (left).
-// Home→first/third: VERTEX to back corner (right-pointing corner, on foul line) = 90ft = 240px.
-//   Back corner of FIRST = (570,320) on right foul; center = back corner − (br,0) ≈ (540,320).
-//   Back corner of THIRD = (230,320) on left foul; center = back corner + (br,0) ≈ (260,320).
-// Home→second: VERTEX to center of second base = 127.279ft diagonal = 340px → (400,150).
-// MLB pitcher = 60.5ft (162px from VERTEX) < 66.8ft to second (178px) → closer to HOME. ✓
-const FIRST  = { x: PLATE.x + 140, y: PLATE.y - 150 }; // (540, 320)
-const SECOND = { x: PLATE.x,       y: PLATE.y - 320 }; // (400, 150) = VERTEX.y − 340
-const THIRD  = { x: PLATE.x - 140, y: PLATE.y - 150 }; // (260, 320)
-
-// Back vertex of home plate — where the two foul lines originate.
-const VERTEX = { x: PLATE.x, y: PLATE.y + 20 };
+import { W, H, PITCHER, PLATE, ZONE, VERTEX, FIRST, SECOND, THIRD, BASE_R, INFIELD_ARC, COLOR_GRASS, COLOR_DIRT, COLOR_MOUND } from '../game/constants.ts';
 
 export default function Field() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,19 +17,15 @@ export default function Field() {
 }
 
 function drawField(ctx: CanvasRenderingContext2D): void {
-  // MLB scale: 340px = 127.279ft (home-to-second diagonal)
   const SCALE  = 340 / 127.279;
-  const arcR   = 95 * SCALE;   // ≈ 254px  95-ft infield arc centered on mound
   const baseR  = 15 * SCALE;   // ≈  40px  15-ft dirt circle around each base
   const moundR =  9 * SCALE;   // ≈  24px  18-ft mound diameter → 9-ft radius
-  const br     = 21 * Math.SQRT2; // ≈  30px  half-diagonal of 18″ rotated base
+  const br     = BASE_R;       // ≈  30px  half-diagonal of 18″ rotated base
 
   // ── Outfield grass ─────────────────────────────────────────────────────
-  // Dark green = foul territory (full canvas background)
-  ctx.fillStyle = '#4a9a3a';
+  ctx.fillStyle = COLOR_GRASS;
   ctx.fillRect(0, 0, W, H);
-  // Light green = all fair territory (polygon between foul lines)
-  ctx.fillStyle = '#55a544';
+  ctx.fillStyle = '#55a544';   // lighter fair-territory grass
   ctx.beginPath();
   ctx.moveTo(VERTEX.x, VERTEX.y);
   ctx.lineTo(W, VERTEX.y - (W - VERTEX.x));   // right foul line → canvas edge (800, 90)
@@ -53,35 +36,19 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // ── Infield dirt — bounded by foul lines and 95-ft arc ─────────────────
-  // Solve for arc ∩ right foul line (x+y = VERTEX.x+VERTEX.y):
-  //   let u = x−PITCHER.x; 2u²−2·FmPy·u+(FmPy²−arcR²)=0
-  //   FmPy = foulSum−PITCHER.x−PITCHER.y
-  const foulSum = VERTEX.x + VERTEX.y;
-  const fmpy    = foulSum - PITCHER.x - PITCHER.y;
-  const chord   = Math.sqrt(2 * arcR * arcR - fmpy * fmpy);
-  const uR      = (fmpy + chord) / 2;
-  const arcRX   = PITCHER.x + uR;
-  const arcRY   = foulSum - arcRX;               // on right foul line
-  const arcLX   = 2 * PITCHER.x - arcRX;        // symmetric left intersection
-  const arcLY   = arcRY;
-  const angR    = Math.atan2(arcRY - PITCHER.y, arcRX - PITCHER.x);
-  const angL    = Math.atan2(arcLY - PITCHER.y, arcLX - PITCHER.x);
-
-  ctx.fillStyle = '#c68a4a';
+  ctx.fillStyle = COLOR_DIRT;
   ctx.beginPath();
   ctx.moveTo(VERTEX.x, VERTEX.y);
-  ctx.lineTo(arcRX, arcRY);                              // up right foul line
-  ctx.arc(PITCHER.x, PITCHER.y, arcR, angR, angL, true); // arc through top (anticlockwise)
-  ctx.closePath();                                       // back down left foul line
+  ctx.lineTo(INFIELD_ARC.rightX, INFIELD_ARC.rightY);                              // up right foul line
+  ctx.arc(PITCHER.x, PITCHER.y, INFIELD_ARC.r, INFIELD_ARC.angR, INFIELD_ARC.angL, true); // arc through top
+  ctx.closePath();                                                                  // back down left foul line
   ctx.fill();
 
   // ── Inner grass diamond ─────────────────────────────────────────────────
-  // All four edges are derived from foul-line geometry:
-  //   Home corner: intersection of foul-line parallels through first/third centers → y=460
-  //   Second corner: intersection of lines perpendicular to foul lines through first/third centers → y=180
-  const homeCornerY   = FIRST.x + FIRST.y - PLATE.x;  // 540+320-400 = 460
-  const secondCornerY = FIRST.y - (FIRST.x - PLATE.x); // 320-140     = 180
-  ctx.fillStyle = '#4a9a3a';
+  // Home corner: foul-line-parallel intersection → y=460; second corner → y=180
+  const homeCornerY   = FIRST.x + FIRST.y - PLATE.x;   // 460
+  const secondCornerY = FIRST.y - (FIRST.x - PLATE.x);  // 180
+  ctx.fillStyle = COLOR_GRASS;
   ctx.beginPath();
   ctx.moveTo(PLATE.x,  homeCornerY);   // home corner
   ctx.lineTo(THIRD.x,  THIRD.y);       // center of third
@@ -113,7 +80,7 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(0, VERTEX.y - VERTEX.x);         // left foul line at canvas edge
   ctx.closePath();
   ctx.clip();
-  ctx.fillStyle = '#c68a4a';
+  ctx.fillStyle = COLOR_DIRT;
   [FIRST, SECOND, THIRD].forEach(({ x, y }) => {
     ctx.beginPath();
     ctx.arc(x, y, baseR, 0, Math.PI * 2);
@@ -122,13 +89,13 @@ function drawField(ctx: CanvasRenderingContext2D): void {
   ctx.restore();
 
   // ── Dirt circle around home plate (may exceed foul lines) ───────────────
-  ctx.fillStyle = '#c68a4a';
+  ctx.fillStyle = COLOR_DIRT;
   ctx.beginPath();
   ctx.arc(PLATE.x, PLATE.y, baseR, 0, Math.PI * 2);
   ctx.fill();
 
   // ── Pitcher's mound (18-ft diameter circle) ────────────────────────────
-  ctx.fillStyle = '#b57a3a';
+  ctx.fillStyle = COLOR_MOUND;
   ctx.beginPath();
   ctx.arc(PITCHER.x, PITCHER.y, moundR, 0, Math.PI * 2);
   ctx.fill();

@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef } from 'react';
-import { W, H, ZONE, PLATE } from '../game/constants.ts';
+import { W, H, ZONE, PLATE, FIRST, SECOND, THIRD, BASE_R, INFIELD_ARC, COLOR_GRASS, COLOR_DIRT, COLOR_MOUND } from '../game/constants.ts';
 import { lerp } from '../game/state.ts';
 import { drawBall } from '../game/draw.ts';
 import type { DrawHandle, GameState } from '../types.ts';
@@ -78,25 +78,21 @@ export default function BatterView({ ref }: Props) {
 }
 
 function drawFieldLines(ctx: CanvasRenderingContext2D): void {
-  // Each base is a square rotated 45° (diamond orientation) projected into batter-view.
-  // SZ = top-down side length; r = half-diagonal used to place the four corners.
-  const SZ = 20;
-  const r  = SZ / Math.SQRT2;
-
-  const pvSecond = projectToPOV(PLATE.x, PLATE.y - 320);
+  // Project each base's four diamond corners from top-down coordinates (FIRST/SECOND/THIRD)
+  // using the shared BASE_R half-diagonal, so base sizes match Field.tsx exactly.
+  const pvSecond = projectToPOV(SECOND.x, SECOND.y);
   const hpx = W / 2;
   const hpy = PROJ_Y0;
 
-  // First base: foul corner anchored at (PLATE.x+150, PLATE.y-150) on the right foul line.
-  // The four corners of the rotated square in top-down → projected to batter-view.
+  // First base: four corners in top-down space, then projected.
+  // Foul corner is on the right foul line; snap it to the visual foul line (the
+  // perspective formula and the drawn foul line don't coincide at home plate level).
   const r1raw = {
-    top:  projectToPOV(PLATE.x + 150 - r, PLATE.y - 150 - r),
-    foul: projectToPOV(PLATE.x + 150,     PLATE.y - 150),
-    bot:  projectToPOV(PLATE.x + 150 - r, PLATE.y - 150 + r),
-    fair: projectToPOV(PLATE.x + 150 - 2 * r, PLATE.y - 150),
+    top:  projectToPOV(FIRST.x,           FIRST.y - BASE_R),
+    foul: projectToPOV(FIRST.x + BASE_R,  FIRST.y),
+    bot:  projectToPOV(FIRST.x,           FIRST.y + BASE_R),
+    fair: projectToPOV(FIRST.x - BASE_R,  FIRST.y),
   };
-  // Snap foul corner onto the visual foul line (the two don't align because the visual
-  // foul line starts at the home-plate corner, not through the perspective formula).
   const dx1 = bvFoulRX(r1raw.foul.y) - r1raw.foul.x;
   const f1 = {
     top:  { x: r1raw.top.x  + dx1, y: r1raw.top.y  },
@@ -105,12 +101,12 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
     fair: { x: r1raw.fair.x + dx1, y: r1raw.fair.y },
   };
 
-  // Third base: mirror of first along the centre axis.
+  // Third base: mirror of first.
   const r3raw = {
-    top:  projectToPOV(PLATE.x - 150 + r, PLATE.y - 150 - r),
-    foul: projectToPOV(PLATE.x - 150,     PLATE.y - 150),
-    bot:  projectToPOV(PLATE.x - 150 + r, PLATE.y - 150 + r),
-    fair: projectToPOV(PLATE.x - 150 + 2 * r, PLATE.y - 150),
+    top:  projectToPOV(THIRD.x,           THIRD.y - BASE_R),
+    foul: projectToPOV(THIRD.x - BASE_R,  THIRD.y),
+    bot:  projectToPOV(THIRD.x,           THIRD.y + BASE_R),
+    fair: projectToPOV(THIRD.x + BASE_R,  THIRD.y),
   };
   const dx3 = bvFoulLX(r3raw.foul.y) - r3raw.foul.x;
   const f3 = {
@@ -120,22 +116,23 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
     fair: { x: r3raw.fair.x + dx3, y: r3raw.fair.y },
   };
 
-  // Second base: diamond centred on the midline at depth 320.
+  // Second base: diamond centred on SECOND.
   const f2 = {
-    top:   projectToPOV(PLATE.x,     PLATE.y - 320 - r),
-    right: projectToPOV(PLATE.x + r, PLATE.y - 320),
-    bot:   projectToPOV(PLATE.x,     PLATE.y - 320 + r),
-    left:  projectToPOV(PLATE.x - r, PLATE.y - 320),
+    top:   projectToPOV(SECOND.x,           SECOND.y - BASE_R),
+    right: projectToPOV(SECOND.x + BASE_R,  SECOND.y),
+    bot:   projectToPOV(SECOND.x,           SECOND.y + BASE_R),
+    left:  projectToPOV(SECOND.x - BASE_R,  SECOND.y),
   };
 
-  // Basepath dirt strips
-  // Home→first and home→third: filled polygon strips of width SZ/2 following the foul line.
-  // Fair-side edge is offset perpendicular to the foul line by ofs (inward toward fair territory).
-  const ofs = SZ / 2 / Math.SQRT2;  // perpendicular inset = half-base-width / √2
+  // Basepath dirt strips — home→first and home→third as filled polygon strips.
+  // Width = half the base side (= BASE_R/2 perpendicular to the 45° foul line).
+  // The right foul-line perpendicular toward fair territory is (−1,−1)/√2,
+  // so the top-down offset for the fair edge is (−ofs, −ofs).
+  const ofs = BASE_R / 2;
 
-  const f1sfRaw = projectToPOV(PLATE.x + 150 - ofs, PLATE.y - 150 - ofs);
+  const f1sfRaw = projectToPOV(FIRST.x + BASE_R - ofs, FIRST.y - ofs);
   const f1sf    = { x: f1sfRaw.x + dx1, y: f1sfRaw.y };
-  const f3sfRaw = projectToPOV(PLATE.x - 150 + ofs, PLATE.y - 150 - ofs);
+  const f3sfRaw = projectToPOV(THIRD.x - BASE_R + ofs, THIRD.y - ofs);
   const f3sf    = { x: f3sfRaw.x + dx3, y: f3sfRaw.y };
 
   const nfR  = { x: hpx + 110, y: hpy };
@@ -143,7 +140,7 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   const nffR = { x: nfR.x + (f1sf.x - f1.foul.x), y: nfR.y + (f1sf.y - f1.foul.y) };
   const nffL = { x: nfL.x + (f3sf.x - f3.foul.x), y: nfL.y + (f3sf.y - f3.foul.y) };
 
-  ctx.fillStyle = '#c68a4a';
+  ctx.fillStyle = COLOR_DIRT;
   ctx.beginPath();
   ctx.moveTo(nfR.x, nfR.y);
   ctx.lineTo(f1.foul.x, f1.foul.y);
@@ -160,7 +157,7 @@ function drawFieldLines(ctx: CanvasRenderingContext2D): void {
   ctx.fill();
 
   // First→second and third→second basepath strips
-  ctx.strokeStyle = '#c68a4a';
+  ctx.strokeStyle = COLOR_DIRT;
   ctx.lineWidth = 14;
   ctx.setLineDash([]);
   ctx.lineCap = 'round';
@@ -229,13 +226,66 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H * 0.26);
 
-  // Infield grass — solid dark fill for the entire band below the sky.
-  ctx.fillStyle = '#4a9a3a';
+  // Base grass fill for the entire band below the sky
+  ctx.fillStyle = COLOR_GRASS;
   ctx.fillRect(0, H * 0.26, W, H * 0.74);
+
+  // Infield dirt — projects the same 95-ft arc (INFIELD_ARC) as the top-down view into
+  // batter-view perspective, then fills the V-shape from home plate up to that arc.
+  // Clipped to the fair-territory cone so it doesn't bleed into foul territory.
+  {
+    const ARC_N = 32;
+    const arcBV: { x: number; y: number }[] = [];
+    for (let i = 0; i <= ARC_N; i++) {
+      const theta = INFIELD_ARC.angR + (i / ARC_N) * (INFIELD_ARC.angL - INFIELD_ARC.angR);
+      arcBV.push(projectToPOV(
+        INFIELD_ARC.cx + INFIELD_ARC.r * Math.cos(theta),
+        INFIELD_ARC.cy + INFIELD_ARC.r * Math.sin(theta),
+      ));
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W / 2, H);
+    ctx.lineTo(W / 2 + 110, PROJ_Y0);
+    ctx.lineTo(pvFoulR.x, pvFoulR.y);
+    ctx.lineTo(pvFoulR.x + 100, 0);
+    ctx.lineTo(pvFoulL.x - 100, 0);
+    ctx.lineTo(pvFoulL.x, pvFoulL.y);
+    ctx.lineTo(W / 2 - 110, PROJ_Y0);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = COLOR_DIRT;
+    ctx.beginPath();
+    ctx.moveTo(W / 2, H);
+    ctx.lineTo(arcBV[0].x, arcBV[0].y);
+    for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Inner grass diamond — same geometry as Field.tsx (foul-line-parallel intersections).
+  // Home corner y=460, second corner y=180; vertices are FIRST/THIRD centers.
+  {
+    const hcY = FIRST.x + FIRST.y - PLATE.x;   // 460
+    const scY = FIRST.y - (FIRST.x - PLATE.x);  // 180
+    const pH = projectToPOV(PLATE.x, hcY);
+    const pF = projectToPOV(FIRST.x, FIRST.y);
+    const pS = projectToPOV(PLATE.x, scY);
+    const pT = projectToPOV(THIRD.x, THIRD.y);
+    ctx.fillStyle = COLOR_GRASS;
+    ctx.beginPath();
+    ctx.moveTo(pH.x, pH.y);
+    ctx.lineTo(pF.x, pF.y);
+    ctx.lineTo(pS.x, pS.y);
+    ctx.lineTo(pT.x, pT.y);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   // Pitcher's mound — at pitcher's feet, inside infield grass
   const moundY = POV_PITCHER.y + 72;
-  ctx.fillStyle = '#c68a4a';
+  ctx.fillStyle = COLOR_MOUND;
   ctx.beginPath();
   ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
