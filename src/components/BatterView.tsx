@@ -240,19 +240,6 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = '#4a9a3a';
   ctx.fillRect(0, H * 0.26, W, H * 0.74);
 
-  // Outfield grass — lighter band clipped below by the projected infield arc.
-  const ofGrass = ctx.createLinearGradient(0, H * 0.26, 0, H * 0.40);
-  ofGrass.addColorStop(0, '#55a544');
-  ofGrass.addColorStop(1, '#4a9a3a');
-  ctx.fillStyle = ofGrass;
-  ctx.beginPath();
-  ctx.moveTo(-60, H * 0.26);
-  ctx.lineTo(W + 60, H * 0.26);
-  ctx.lineTo(arcBV[0].x, arcBV[0].y);
-  for (let i = 1; i <= ARC_N; i++) ctx.lineTo(arcBV[i].x, arcBV[i].y);
-  ctx.closePath();
-  ctx.fill();
-
   // Infield dirt — fills fair territory from home-plate level up to the infield arc.
   // A clip to the visual fair-territory cone (foul lines) prevents bleeding into foul territory.
   {
@@ -309,28 +296,6 @@ function drawBackground(ctx: CanvasRenderingContext2D): void {
   ctx.beginPath();
   ctx.ellipse(POV_PITCHER.x, moundY, 100, 18, 0, 0, Math.PI * 2);
   ctx.fill();
-
-  // Near dirt — small strip just above home plate, clipped to fair-territory cone + screen bottom.
-  // Starts at dirtTopY (≈490, well below the strike zone at y=340), fades toward home plate.
-  {
-    const dirtTopY = POV_ZONE.y + POV_ZONE.h;  // bottom of strike zone (520), stays below zone
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(W / 2 - 110, PROJ_Y0);
-    ctx.lineTo(pvFoulL.x, pvFoulL.y);
-    ctx.lineTo(pvFoulR.x, pvFoulR.y);
-    ctx.lineTo(W / 2 + 110, PROJ_Y0);
-    ctx.lineTo(W, H);
-    ctx.lineTo(0, H);
-    ctx.closePath();
-    ctx.clip();
-    const dirtGrad = ctx.createLinearGradient(0, dirtTopY, 0, H);
-    dirtGrad.addColorStop(0, '#b87a3c');
-    dirtGrad.addColorStop(1, '#8d5a2a');
-    ctx.fillStyle = dirtGrad;
-    ctx.fillRect(0, dirtTopY, W, H - dirtTopY);
-    ctx.restore();
-  }
 
   // Home plate (near bottom-center)
   ctx.fillStyle = '#fff';
